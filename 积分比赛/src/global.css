@@ -1,0 +1,5 @@
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #app { margin: 0; padding: 0; width: 100%; }
+body { overflow-x: hidden; }
+#app { min-height: 100vh; }
+.el-container, .el-header, .el-main, .el-footer, .el-aside { padding: 0 !important; margin: 0 !important; max-width: 100% !important; width: 100% !important; }
