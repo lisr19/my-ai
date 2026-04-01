@@ -210,13 +210,19 @@
           <li>支持格式：png、jpg、jpeg（大小写均可）</li>
           <li>找不到对应文件时自动使用默认头像</li>
         </ul>
+
+        <div class="usage-copyright">
+          <p>© 2026 积分竞赛系统 | All Rights Reserved</p>
+          <p>本系统仅供教学使用，禁止商业用途</p>
+        </div>
       </div>
     </el-dialog>
 
     <el-drawer v-model="rankDialogVisible" title="🏆 比赛结果" size="400px" direction="ltr" :lock-scroll="true">
       <div class="rank-list">
         <div v-for="(student, idx) in rankedStudents" :key="`rank-${idx}`" class="rank-item"
-          :class="idx === 0 ? 'first-item' : idx === 1 ? 'second-item' : idx === 2 ? 'third-item' : ''">
+          :class="idx === 0 ? 'first-item' : idx === 1 ? 'second-item' : idx === 2 ? 'third-item' : ''"
+          @click="showStudentDetail(student)">
           <span class="rank-num">{{ idx + 1 }}</span>
           <div v-if="config.avatarMode === 'name-match'" class="rank-avatar-wrap">
             <img :src="getRankAvatarUrl(student.name)" class="rank-avatar-img" />
@@ -226,6 +232,33 @@
         </div>
       </div>
     </el-drawer>
+
+    <el-dialog v-model="detailDialogVisible" title="👤 详情" width="520px" class="detail-dialog">
+      <div v-if="selectedStudent" class="student-detail">
+        <div class="detail-header">
+          <div class="detail-avatar">
+            <img v-if="config.avatarMode === 'name-match'" :src="getRankAvatarUrl(selectedStudent.name)" class="avatar-img" />
+            <span v-else-if="config.avatarMode === 'surname'" class="avatar-text">{{ getSurname(selectedStudent.name) }}</span>
+            <img v-else :src="customAvatarUrl" class="avatar-img" />
+          </div>
+          <div class="detail-info">
+            <h3 class="detail-name">{{ selectedStudent.name }}</h3>
+            <p class="detail-group" v-if="selectedStudent.group">组别：{{ selectedStudent.group }}</p>
+          </div>
+          <div class="detail-rank-badge">
+            <span class="rank-label">排名</span>
+            <span class="rank-number">{{ rankedStudents.findIndex(s => s.name === selectedStudent.name) + 1 }}</span>
+          </div>
+        </div>
+        
+        <div class="detail-scores">
+          <div v-for="(value, key, idx) in selectedStudent.rawData" :key="key" class="detail-item" :style="{ '--item-index': idx }">
+            <span class="detail-label">{{ key }}</span>
+            <span class="detail-value">{{ value }}</span>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -233,6 +266,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+// 版权信息 © 2026 lisongran - 积分竞赛系统
+const COPYRIGHT_INFO = '© 2026 lisongran - 积分竞赛系统 | All Rights Reserved'
 
 // 默认头像从 img/ 目录读取，不打包进 bundle
 const isFile = typeof location !== 'undefined' && location.protocol === 'file:'
@@ -424,6 +460,8 @@ const bgImage = ref('')
 const configDialogVisible = ref(false)
 const rankDialogVisible = ref(false)
 const usageDialogVisible = ref(false)
+const detailDialogVisible = ref(false)
+const selectedStudent = ref(null)
 const raceFinished = ref(false)
 const raceStarted = ref(false)
 const performanceLevel = ref('high')
@@ -453,37 +491,29 @@ const customAvatarUrl = ref(defaultAvatarUrl)
 const customBgMusic = ref(null)
 
 const defaultData = [
-  { name: '熊子轩', score: 65, group: 'D' },
-  { name: '周子涵', score: 91, group: 'B' },
-  { name: '方慧琳', score: '请假', group: 'C' },
-  { name: '韩宇豪', score: 83, group: 'A' },
-  { name: '罗明远', score: 60, group: 'B' },
-  { name: '沈雅欣', score: 84, group: 'D' },
-  { name: '陈宇飞', score: 98, group: 'A' },
-  { name: '丁雨萌', score: 72, group: 'C' },
-  { name: '赵梦琪', score: 93, group: 'D' },
-  { name: '魏思远', score: 73, group: 'B' },
-  { name: '林依依', score: 77, group: 'B' },
-  { name: '孙晨曦', score: 92, group: 'A' },
-  { name: '田思琪', score: 63, group: 'A' },
-  { name: '冯晓萌', score: 86, group: 'B' },
-  { name: '江浩宇', score: 71, group: 'D' },
-  { name: '王浩然', score: 95, group: 'C' },
-  { name: '彭子轩', score: 74, group: 'A' },
-  { name: '郑佳怡', score: 88, group: 'D' },
-  { name: '许晨阳', score: 78, group: 'A' },
-  { name: '蒋明轩', score: 85, group: 'C' },
-  { name: '刘思雨', score: 96, group: 'B' },
-  { name: '谢雨桐', score: 70, group: 'A' },
-  { name: '钱博文', score: 87, group: 'A' },
-  { name: '杨诗涵', score: 82, group: 'B' },
-  { name: '曹欣悦', score: 75, group: 'D' },
-  { name: '吴雨桐', score: 90, group: 'C' },
-  { name: '何俊杰', score: 76, group: 'C' },
-  { name: '秦乐天', score: 79, group: 'D' },
-  { name: '姜子煊', score: 68, group: 'B' },
-  { name: '朱子墨', score: 81, group: 'C' }
+  { name: '陈宇飞', score: 98, group: 'A', rawData: { '姓名': '陈宇飞', '总分': 98, '组别': 'A', '听力': 25, '阅读': 30, '写作': 22, '口语': 21 } },
+  { name: '刘思雨', score: 96, group: 'B', rawData: { '姓名': '刘思雨', '总分': 96, '组别': 'B', '听力': 24, '阅读': 28, '写作': 24, '口语': 20 } },
+  { name: '王浩然', score: 95, group: 'C', rawData: { '姓名': '王浩然', '总分': 95, '组别': 'C', '听力': 23, '阅读': 30, '写作': 21, '口语': 21 } },
+  { name: '赵梦琪', score: 93, group: 'D', rawData: { '姓名': '赵梦琪', '总分': 93, '组别': 'D', '听力': 24, '阅读': 27, '写作': 22, '口语': 20 } },
+  { name: '孙晨曦', score: 92, group: 'A', rawData: { '姓名': '孙晨曦', '总分': 92, '组别': 'A', '听力': 22, '阅读': 28, '写作': 23, '口语': 19 } },
+  { name: '周子涵', score: 91, group: 'B', rawData: { '姓名': '周子涵', '总分': 91, '组别': 'B', '听力': 23, '阅读': 26, '写作': 22, '口语': 20 } },
+  { name: '吴雨桐', score: 90, group: 'C', rawData: { '姓名': '吴雨桐', '总分': 90, '组别': 'C', '听力': 22, '阅读': 27, '写作': 21, '口语': 20 } },
+  { name: '郑佳怡', score: 88, group: 'D', rawData: { '姓名': '郑佳怡', '总分': 88, '组别': 'D', '听力': 21, '阅读': 25, '写作': 22, '口语': 20 } },
+  { name: '钱博文', score: 87, group: 'A', rawData: { '姓名': '钱博文', '总分': 87, '组别': 'A', '听力': 20, '阅读': 26, '写作': 21, '口语': 20 } },
+  { name: '冯晓萌', score: 86, group: 'B', rawData: { '姓名': '冯晓萌', '总分': 86, '组别': 'B', '听力': 21, '阅读': 25, '写作': 20, '口语': 20 } },
+  { name: '蒋明轩', score: 85, group: 'C', rawData: { '姓名': '蒋明轩', '总分': 85, '组别': 'C', '听力': 20, '阅读': 24, '写作': 22, '口语': 19 } },
+  { name: '沈雅欣', score: 84, group: 'D', rawData: { '姓名': '沈雅欣', '总分': 84, '组别': 'D', '听力': 20, '阅读': 24, '写作': 21, '口语': 19 } },
+  { name: '韩宇豪', score: 83, group: 'A', rawData: { '姓名': '韩宇豪', '总分': 83, '组别': 'A', '听力': 19, '阅读': 24, '写作': 21, '口语': 19 } },
+  { name: '杨诗涵', score: 82, group: 'B', rawData: { '姓名': '杨诗涵', '总分': 82, '组别': 'B', '听力': 19, '阅读': 23, '写作': 21, '口语': 19 } },
+  { name: '方慧琳', score: '请假', group: 'C', rawData: { '姓名': '方慧琳', '总分': '请假', '组别': 'C', '听力': '请假', '阅读': '请假', '写作': '请假', '口语': '请假' } },
+  { name: '许晨阳', score: 78, group: 'A', rawData: { '姓名': '许晨阳', '总分': 78, '组别': 'A', '听力': 18, '阅读': 22, '写作': 20, '口语': 18 } },
+  { name: '林依依', score: 77, group: 'B', rawData: { '姓名': '林依依', '总分': 77, '组别': 'B', '听力': 18, '阅读': 21, '写作': 20, '口语': 18 } },
+  { name: '曹欣悦', score: 75, group: 'D', rawData: { '姓名': '曹欣悦', '总分': 75, '组别': 'D', '听力': 17, '阅读': 20, '写作': 20, '口语': 18 } },
+  { name: '魏思远', score: 73, group: 'B', rawData: { '姓名': '魏思远', '总分': 73, '组别': 'B', '听力': 17, '阅读': 19, '写作': 19, '口语': 18 } },
+  { name: '罗明远', score: 60, group: 'B', rawData: { '姓名': '罗明远', '总分': 60, '组别': 'B', '听力': 14, '阅读': 16, '写作': 16, '口语': 14 } }
 ]
+
+const shuffledDefaultData = [...defaultData].sort(() => Math.random() - 0.5)
 
 const rankedStudents = computed(() => {
   const sorted = [...studentData.value].sort((a, b) => {
@@ -681,7 +711,8 @@ const handleExcelUpload = (file) => {
       studentData.value = jsonData.map(item => ({
         name: item['姓名'],
         score: item['总分'],
-        group: normalizeGroup(groupKey ? item[groupKey] : '')
+        group: normalizeGroup(groupKey ? item[groupKey] : ''),
+        rawData: item
       }))
 
       ElMessage.success(`成功导入 ${studentData.value.length} 条学生数据！`)
@@ -1005,10 +1036,15 @@ const showRankDialog = () => {
   rankDialogVisible.value = true
 }
 
+const showStudentDetail = (student) => {
+  selectedStudent.value = student
+  detailDialogVisible.value = true
+}
+
 onMounted(() => {
   initAudioCtx()
   loadPersistedConfig()
-  studentData.value = [...defaultData]
+  studentData.value = [...shuffledDefaultData]
   showInitialPlayers()
 })
 </script>
@@ -1127,13 +1163,15 @@ onMounted(() => {
 .usage-table th, .usage-table td { border: 1px solid #d1d5db; padding: 7px 12px; text-align: left; }
 .usage-table thead { background: #f0f4f8; font-weight: 600; }
 .usage-note { margin-top: 8px; color: #6b7280; font-size: 12px; }
+.usage-copyright { margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb; text-align: center; }
+.usage-copyright p { margin: 4px 0; font-size: 12px; color: #9ca3af; }
 @keyframes trophyRotate { 0%, 100% { transform: translateX(-50%) rotate(-5deg); } 50% { transform: translateX(-50%) rotate(5deg); } }
 .info-tag { position: absolute; top: 50%; right: calc(100% + 5px); transform: translateY(-50%); padding: 4px 8px; border-radius: 6px; font-size: var(--name-font-size, 12px); font-weight: 600; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); z-index: 4; border: 1px solid #ddd; pointer-events: none; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: #333; }
 .student-name { color: #000000; font-weight: bold; }
 .score { color: #e67e22; margin-left: 4px; font-weight: bold; }
 .rank-btn { border-radius: 999px; box-shadow: 0 10px 20px rgba(25, 118, 210, 0.35); }
 .rank-list { display: flex; flex-direction: column; gap: 10px; }
-.rank-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 15px; font-size: 16px; background: rgba(255, 255, 255, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.2s ease; }
+.rank-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 15px; font-size: 16px; background: rgba(255, 255, 255, 0.8); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.2s ease; cursor: pointer; }
 .rank-item:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
 .rank-item.first-item { background: linear-gradient(45deg, #fff8e1, #fff3cd); border: 2px solid #ffd700; }
 .rank-item.second-item { background: linear-gradient(45deg, #f8f9fa, #e9ecef); border: 2px solid #c0c0c0; }
@@ -1147,6 +1185,26 @@ onMounted(() => {
 .rank-avatar-surname { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; font-size: 14px; }
 .rank-name { flex: 1; font-weight: 600; }
 .rank-score { color: #ff7d00; font-weight: 700; }
+
+.student-detail { max-height: 60vh; overflow-y: auto; padding: 0 2px; }
+.detail-header { display: flex; align-items: center; gap: 16px; padding: 20px; background: linear-gradient(135deg, #7dd3fc 0%, #86efac 50%, #bef264 100%); border-radius: 16px; margin-bottom: 16px; box-shadow: 0 6px 20px rgba(125, 211, 252, 0.15); position: relative; overflow: hidden; }
+.detail-header::after { content: ''; position: absolute; top: -50%; right: -20%; width: 200px; height: 200px; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); pointer-events: none; }
+.detail-avatar { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; border: 3px solid rgba(255, 255, 255, 0.6); display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.25); flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+.detail-avatar .avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.detail-avatar .avatar-text { font-size: 30px; font-weight: bold; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+.detail-info { flex: 1; position: relative; z-index: 1; }
+.detail-name { margin: 0 0 6px 0; font-size: 24px; font-weight: bold; color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); }
+.detail-group { margin: 0; color: rgba(255, 255, 255, 0.95); font-size: 14px; font-weight: 500; }
+.detail-rank-badge { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px); border-radius: 12px; padding: 8px 14px; position: relative; z-index: 1; }
+.rank-label { font-size: 11px; color: rgba(255, 255, 255, 0.9); font-weight: 500; }
+.rank-number { font-size: 28px; font-weight: 800; color: #fff; line-height: 1.2; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+.detail-scores { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.detail-item { padding: 12px 14px; background: linear-gradient(135deg, #fcfdff 0%, #f8fbff 100%); border-radius: 10px; border: 1.5px solid #f0f6ff; transition: all 0.3s ease; position: relative; overflow: hidden; }
+.detail-item::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: linear-gradient(180deg, #93c5fd 0%, #bfdbfe 100%); }
+.detail-item:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(147, 197, 253, 0.15); border-color: #dbeafe; }
+.detail-label { display: block; font-size: 12px; color: #7c8fa6; margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.detail-value { display: block; font-size: 17px; font-weight: 700; color: #1e293b; }
+
 @media (max-width: 768px) {
   .race-area { height: 500px; padding: 10px 0 10px 60px; }
   .title-shell { padding: 12px 14px; border-radius: 14px; }
