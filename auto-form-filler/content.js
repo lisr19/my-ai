@@ -17,16 +17,30 @@
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log('[AutoFiller] 收到消息:', request.action);
     
+    // ★ 关键修复：只让顶层 frame 处理 Side Panel 的操作消息
+    //   all_frames:true 导致 content script 在每个 iframe 中也运行
+    //   如果所有 frame 都响应，会导致：双遮罩 / iframe统计不准 / 重复填充
+    var isTopFrame = (window === window.top);
+    var TOP_ONLY_ACTIONS = ['fillForm', 'getFormData', 'clearForm'];
+    
+    if (TOP_ONLY_ACTIONS.indexOf(request.action) >= 0 && !isTopFrame) {
+      // iframe 内的 content script 不处理这些消息，让顶层 frame 处理
+      return false;
+    }
+    
     try {
       if (request.action === 'fillForm') {
+        
         setTimeout(function(){
           try {
-            // ★ 统一显示遮罩 + 设置进度回调（所有入口一致）
-            showFilling();
-            if(window._AF && window._AF.setProgressCallback){
-              window._AF.setProgressCallback(function(progress){
-                updateFillingProgress(progress);
-              });
+            // ★ 统一显示遮罩 + 设置进度回调（仅顶层frame）
+            if(isTopFrame) {
+              showFilling();
+              if(window._AF && window._AF.setProgressCallback){
+                window._AF.setProgressCallback(function(progress){
+                  updateFillingProgress(progress);
+                });
+              }
             }
 
             var result;
@@ -35,34 +49,34 @@
               // v7 返回 Promise → 需要异步等待结果
               if (result && typeof result.then === 'function') {
                 result.then(function(r){
-                  hideFilling();
+                  if(isTopFrame) hideFilling();
                   sendResponse(r);
                 }).catch(function(e){
-                  hideFilling();
+                  if(isTopFrame) hideFilling();
                   sendResponse({ success: false, error: e.message });
                 });
                 return true; // keep channel open
               }
-              hideFilling();
+              if(isTopFrame) hideFilling();
               sendResponse(result);
             } else if (typeof window.autoFillForm === 'function') {
               result = window.autoFillForm(request.data || {});
               if (result && typeof result.then === 'function') {
                 result.then(function(r){
-                  hideFilling();
+                  if(isTopFrame) hideFilling();
                   sendResponse(r);
                 });
                 return true;
               }
-              hideFilling();
+              if(isTopFrame) hideFilling();
               sendResponse(result);
             } else {
               result = fillFallback(request.data || {});
-              hideFilling();
+              if(isTopFrame) hideFilling();
               sendResponse(result);
             }
           } catch(e) {
-            hideFilling();
+            if(isTopFrame) hideFilling();
             console.error('[AutoFiller] 填充出错:', e);
             sendResponse({ success: false, error: e.message });
           }
