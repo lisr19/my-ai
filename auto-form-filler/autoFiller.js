@@ -12,6 +12,9 @@ var _AFCtrl = {
   apiKey: ''          // DeepSeek API Key
 };
 
+// ★ 进度回调（content.js 遮罩层实时显示当前字段）
+var _onProgressCallback = null;
+
 // 抽屉/弹窗防护：填充期间拦截遮罩层 click 事件，防止 el-drawer/el-dialog 被误关闭
 var _drawerGuards = [];
 
@@ -34,7 +37,9 @@ window._AF = {
   setApiKey: function(key){ _AFCtrl.apiKey = key; try{ chrome.storage.local.set({af_api_key:key}); }catch(e){} },
   getApiKey: function(){ return _AFCtrl.apiKey; },
   enableAI: function(enabled){ _AFCtrl.aiEnabled = !!enabled; try{ chrome.storage.local.set({af_ai_enabled:!!enabled}); }catch(e){} },
-  isAIEnabled: function(){ return _AFCtrl.aiEnabled && !!_AFCtrl.apiKey; }
+  isAIEnabled: function(){ return _AFCtrl.aiEnabled && !!_AFCtrl.apiKey; },
+  // ★ 进度回调（供 content.js 遮罩层实时显示当前字段）
+  setProgressCallback: function(fn){ _onProgressCallback = fn; }
 };
 window.autoFillForm = window._AF.fill;
 window.detectFormFields = window._AF.detect;
@@ -710,6 +715,11 @@ function _fillAll(data) {
         var f = fields[idx++];
         var isSel = SELECT_TYPES.indexOf(f.type) >= 0;
         var lbl = (f.label||f.placeholder||'#'+idx).slice(0,35);
+
+        // ★ 通知 content.js 更新遮罩层进度
+        if(_onProgressCallback){
+          try{ _onProgressCallback({ fieldLabel: lbl, index: idx, total: fields.length }); }catch(e){}
+        }
 
         if(isSel){
           // 已联动？

@@ -1,5 +1,5 @@
 // sidepanel.js - v10 AI智能版（Side Panel 侧边栏版本）
-// 与 popup.js 逻辑保持一致，适配浏览器右侧侧边栏
+// 简化版：内置默认 API Key，UI 只保留模式开关
 document.addEventListener('DOMContentLoaded', () => {
   const fillBtn = document.getElementById('fillBtn');
   const fillBtnText = document.getElementById('fillBtnText');
@@ -10,19 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // AI 配置元素
   const aiToggle = document.getElementById('aiToggle');
-  const aiKeyRow = document.getElementById('aiKeyRow');
-  const apiKeyInput = document.getElementById('apiKeyInput');
-  const saveKeyBtn = document.getElementById('saveKeyBtn');
-  const cancelKeyBtn = document.getElementById('cancelKeyBtn');
-  const aiKeyStatus = document.getElementById('aiKeyStatus');
   const topModeBadge = document.getElementById('topModeBadge');
-  const keySummary = document.getElementById('keySummary');
-  const keySummaryText = document.getElementById('keySummaryText');
-  const keyEditBtn = document.getElementById('keyEditBtn');
+
+  // ★ 内置默认 API Key
+  const DEFAULT_API_KEY = 'sk-e1a584e3325e4e40bb6e048a62ca047f';
 
   // 全局状态
-  var hasKey = false;  // 是否已保存过 key
-  var aiEnabled = false; // AI 是否启用
+  var aiEnabled = false;
 
   // 更新顶部模式徽章
   function updateTopModeBadge(isAI){
@@ -46,39 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 更新 key 摘要显示
-  function updateKeySummary(key){
-    if(key && key.trim()){
-      hasKey = true;
-      keySummary.style.display = 'flex';
-      keySummaryText.textContent = 'sk-' + key.slice(3, 7) + '****...****' + key.slice(-4);
-    }else{
-      hasKey = false;
-      keySummary.style.display = 'none';
-    }
-  }
-
-  // 显示 key 输入框
-  function showKeyInput(){
-    aiKeyRow.style.display = 'flex';
-    setTimeout(function(){ apiKeyInput.focus(); }, 100);
-  }
-
-  // 隐藏 key 输入框
-  function hideKeyInput(){
-    aiKeyRow.style.display = 'none';
-    apiKeyInput.value = '';
-    aiKeyStatus.textContent = '';
-  }
-
   // 通知 content script
-  function notifyContent(enabled, key){
+  function notifyContent(enabled){
     chrome.tabs.query({active:true, currentWindow:true}, function(tabs){
       if(tabs[0]){
         chrome.tabs.sendMessage(tabs[0].id, {
           action: 'setAI',
           enabled: enabled,
-          apiKey: key || apiKeyInput.value
+          apiKey: DEFAULT_API_KEY  // ★ 始终发送内置 Key
         });
       }
     });
@@ -87,16 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ========== AI 配置逻辑 ==========
 
   // 从 storage 加载配置
-  chrome.storage.local.get(['af_api_key', 'af_ai_enabled'], function(result) {
-    var key = result.af_api_key || '';
+  chrome.storage.local.get(['af_ai_enabled'], function(result) {
     var enabled = !!result.af_ai_enabled;
-
-    if(key){
-      apiKeyInput.value = key;
-      updateKeySummary(key);
-    }
-
-    if(enabled && key){
+    if(enabled){
       aiToggle.checked = true;
       updateTopModeBadge(true);
     }else{
@@ -111,78 +73,23 @@ document.addEventListener('DOMContentLoaded', () => {
       aiToggle.checked = false;
       aiToggle.dispatchEvent(new Event('change'));
     }else{
-      if(hasKey){
-        aiToggle.checked = true;
-        aiToggle.dispatchEvent(new Event('change'));
-      }else{
-        showKeyInput();
-        aiKeyStatus.textContent = '💡 请输入 DeepSeek API Key 启用 AI 模式';
-        aiKeyStatus.className = 'ai-key-status';
-      }
+      aiToggle.checked = true;
+      aiToggle.dispatchEvent(new Event('change'));
     }
-  });
-
-  // 编辑 Key 按钮
-  keyEditBtn.addEventListener('click', function(){
-    chrome.storage.local.get(['af_api_key'], function(r){
-      if(r.af_api_key){
-        apiKeyInput.value = r.af_api_key;
-        showKeyInput();
-        aiKeyStatus.textContent = '💡 编辑后点击保存';
-        aiKeyStatus.className = 'ai-key-status';
-      }
-    });
   });
 
   // 切换 AI 开关
   aiToggle.addEventListener('change', function() {
     var checked = this.checked;
-
     if(checked){
-      if(!hasKey || !apiKeyInput.value.trim()){
-        showKeyInput();
-        aiKeyStatus.textContent = '⚠️ 请输入并保存 DeepSeek API Key';
-        aiKeyStatus.className = 'ai-key-status error';
-        this.checked = false;
-        return;
-      }
-
-      chrome.storage.local.set({ af_ai_enabled: true });
+      chrome.storage.local.set({ af_ai_enabled: true, af_api_key: DEFAULT_API_KEY });
       updateTopModeBadge(true);
-      notifyContent(true, apiKeyInput.value);
+      notifyContent(true);
     }else{
       chrome.storage.local.set({ af_ai_enabled: false });
       updateTopModeBadge(false);
-      notifyContent(false, null);
+      notifyContent(false);
     }
-  });
-
-  // 保存 API Key
-  saveKeyBtn.addEventListener('click', function() {
-    var key = apiKeyInput.value.trim();
-    if (!key) {
-      aiKeyStatus.textContent = '⚠️ 请输入有效的 API Key';
-      aiKeyStatus.className = 'ai-key-status error';
-      return;
-    }
-    if (!key.startsWith('sk-')) {
-      aiKeyStatus.textContent = '⚠️ API Key 应以 sk- 开头';
-      aiKeyStatus.className = 'ai-key-status error';
-      return;
-    }
-
-    chrome.storage.local.set({ af_api_key: key, af_ai_enabled: true }, function() {
-      updateKeySummary(key);
-      hideKeyInput();
-      aiToggle.checked = true;
-      updateTopModeBadge(true);
-      notifyContent(true, key);
-    });
-  });
-
-  // 取消编辑
-  cancelKeyBtn.addEventListener('click', function(){
-    hideKeyInput();
   });
 
   // ========== 一键填写 ==========
@@ -399,4 +306,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fieldList.innerHTML = html;
   }
+
+  // ========== 使用说明弹窗 ==========
+  const helpBtn = document.getElementById('helpBtn');
+  const helpModalOverlay = document.getElementById('helpModalOverlay');
+  const helpCloseBtn = document.getElementById('helpCloseBtn');
+
+  // 显示当前版本号
+  try {
+    var ver = chrome.runtime.getManifest().version || '3.7.1';
+    var versionTag = document.getElementById('versionTag');
+    var modalVersion = document.getElementById('modalVersion');
+    if (versionTag) versionTag.textContent = 'v' + ver;
+    if (modalVersion) modalVersion.textContent = ver;
+  } catch(e) {}
+
+  function openHelpModal() {
+    helpModalOverlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeHelpModal() {
+    helpModalOverlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  helpBtn.addEventListener('click', openHelpModal);
+  helpCloseBtn.addEventListener('click', closeHelpModal);
+  helpModalOverlay.addEventListener('click', function(e) {
+    if (e.target === helpModalOverlay) closeHelpModal();
+  });
+  // ESC 关闭
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && helpModalOverlay.classList.contains('show')) {
+      closeHelpModal();
+    }
+  });
 });

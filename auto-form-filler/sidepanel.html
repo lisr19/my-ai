@@ -75,8 +75,15 @@
       background:linear-gradient(135deg,#667eea,#764ba2); color:white;
       box-shadow:0 4px 15px rgba(102,126,234,.4);
     }
-    .btn-clear { background:#f5f5f5; color:#888; font-size:13px; padding:10px; margin-top:8px;}
+    .btn-clear { background:#f5f5f5; color:#888; font-size:13px; padding:12px; flex:1; min-width:0;}
     .btn-clear:hover { box-shadow:0 3px 10px rgba(0,0,0,.08); }
+
+    /* 按钮行：一键填写 + 清空表单 并排 */
+    .btn-row {
+      display:flex; gap:8px;
+    }
+    .btn-row .btn-fill { flex:2; }
+    .btn-row .btn-clear { flex:1; margin-top:0; }
 
     /* 字段列表 */
     .field-list {
@@ -253,6 +260,103 @@
     }
     input:checked + .slider { background-color:#667eea; }
     input:checked + .slider:before { transform:translateX(20px); }
+
+    /* 版本号标签 */
+    .version-tag {
+      font-size:10px; padding:2px 8px; border-radius:10px;
+      background:rgba(255,255,255,.25); color:white; font-weight:600;
+      white-space:nowrap;
+    }
+
+    /* 使用说明按钮 */
+    .help-btn {
+      width:100%; margin-top:12px; padding:10px;
+      border:none; border-radius:10px;
+      background:rgba(255,255,255,.18); color:white;
+      font-size:12px; cursor:pointer; transition:background .2s;
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      font-weight:500;
+    }
+    .help-btn:hover { background:rgba(255,255,255,.32); }
+
+    /* ====== 使用说明弹窗 ====== */
+    .help-modal-overlay {
+      position:fixed; inset:0; z-index:99999;
+      background:rgba(0,0,0,.5);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none; transition:opacity .25s ease;
+    }
+    .help-modal-overlay.show { opacity:1; pointer-events:auto; }
+
+    .help-modal {
+      width:90%; max-width:560px; max-height:85vh;
+      background:#fff; border-radius:16px;
+      box-shadow:0 20px 60px rgba(0,0,0,.3);
+      display:flex; flex-direction:column;
+      overflow:hidden;
+      transform:scale(.9) translateY(20px);
+      transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+    }
+    .help-modal-overlay.show .help-modal {
+      transform:scale(1) translateY(0);
+    }
+
+    .help-modal-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px; background:linear-gradient(135deg,#667eea,#764ba2);
+      color:white; flex-shrink:0;
+    }
+    .help-modal-header h2 { font-size:16px; margin:0; font-weight:700; }
+    .help-close-btn {
+      width:30px; height:30px; border:none; border-radius:50%;
+      background:rgba(255,255,255,.2); color:white;
+      font-size:20px; cursor:pointer; display:flex;
+      align-items:center; justify-content:center;
+      transition:background .2s;
+    }
+    .help-close-btn:hover { background:rgba(255,255,255,.35); }
+
+    .help-modal-body {
+      padding:20px; overflow-y:auto; flex:1;
+    }
+
+    .help-section {
+      margin-bottom:18px; padding-bottom:18px;
+      border-bottom:1px solid #f0f0f0;
+    }
+    .help-section--last { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+    .help-section h3 {
+      font-size:14px; font-weight:700; color:#333; margin:0 0 8px;
+      display:flex; align-items:center; gap:6px;
+    }
+    .help-section p {
+      font-size:12.5px; line-height:1.65; color:#555; margin:6px 0;
+    }
+    .help-section ul {
+      margin:6px 0; padding-left:18px;
+    }
+    .help-section li {
+      font-size:12.5px; line-height:1.7; color:#555; margin-bottom:4px;
+    }
+    .help-tip {
+      background:#e8f5e9; color:#2e7d32; padding:8px 12px;
+      border-radius:8px; font-size:12px !important;
+      border-left:3px solid #4caf50;
+    }
+
+    .support-grid {
+      display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;
+    }
+    .support-tag {
+      font-size:11px; padding:4px 10px; border-radius:6px;
+      background:#f0f4ff; color:#667eea; font-weight:500;
+    }
+
+    .help-modal-footer {
+      text-align:center; padding:12px 20px;
+      background:#fafbfc; border-top:1px solid #eee;
+      font-size:11px; color:#999; flex-shrink:0;
+    }
   </style>
 </head>
 <body>
@@ -265,13 +369,15 @@
     <div class="scroll-area">
       <!-- 主操作区 -->
       <div class="card">
-        <button id="fillBtn" class="big-btn btn-fill">
-          <span class="btn-icon">✨</span>
-          <span id="fillBtnText">一键填写全部字段</span>
-        </button>
-        <button id="clearBtn" class="big-btn btn-clear">🗑️ 清空表单</button>
+        <div class="btn-row">
+          <button id="fillBtn" class="big-btn btn-fill">
+            <span class="btn-icon">✨</span>
+            <span id="fillBtnText">一键填写</span>
+          </button>
+          <button id="clearBtn" class="big-btn btn-clear">🗑️ 清空</button>
+        </div>
 
-        <!-- AI 配置区 -->
+        <!-- AI 配置区（简化版：只有开关） -->
         <div class="ai-config" id="aiConfig">
           <div class="top-mode-badge" id="topModeBadge">
             <span class="mode-icon">📋</span>
@@ -288,20 +394,6 @@
               <span class="slider"></span>
             </label>
           </div>
-
-          <div class="key-summary" id="keySummary" style="display:none;">
-            <span class="key-icon">🔑</span>
-            <span class="key-text" id="keySummaryText">sk-xxxxxxxx...</span>
-            <button class="key-edit-btn" id="keyEditBtn">编辑</button>
-          </div>
-
-          <div class="ai-key-row" id="aiKeyRow" style="display:none;">
-            <input type="text" id="apiKeyInput" placeholder="输入 DeepSeek API Key (sk-...)" autocomplete="off">
-            <button id="saveKeyBtn" class="btn-save-key">保存</button>
-            <button id="cancelKeyBtn" class="btn-cancel-key">取消</button>
-          </div>
-
-          <div class="ai-key-status" id="aiKeyStatus"></div>
         </div>
 
         <div class="result-stats" id="resultStats" style="display:none;">
@@ -309,6 +401,11 @@
           <div class="stat-box"><div class="stat-number" id="statText">0</div><div class="stat-label">文本已填</div></div>
           <div class="stat-box"><div class="stat-number" id="statSelect">0</div><div class="stat-label">下拉已选</div></div>
           <div class="stat-box"><div class="stat-number" id="statIframe">0</div><div class="stat-label">iframe字段</div></div>
+        </div>
+
+        <!-- 填写结果状态栏 -->
+        <div class="status-bar status-info" id="statusBar">
+          💡 点击上方模式徽章可切换规则模式 ↔ AI智能模式
         </div>
       </div>
 
@@ -320,18 +417,113 @@
         </div>
       </div>
 
-      <div class="status-bar status-info" id="statusBar">
-        💡 点击上方模式徽章可切换规则模式 ↔ AI智能模式
-      </div>
-
       <div class="features" style="margin-top:12px;">
-        <strong>🎯 v10 AI智能版特性：</strong><br>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <strong>🎯 v10 AI智能版特性</strong>
+          <span class="version-tag" id="versionTag">v3.7.1</span>
+        </div>
         • <strong>🤖 DeepSeek AI智能生成</strong> — 理解表单语义，生成真实合理数据<br>
         • <strong>自动回退</strong> — AI调用失败时自动回退到规则模式<br>
         • <strong>同源iframe自动识别</strong> — 自动扫描页面内嵌的iframe表单<br>
         • <strong>串行按序填充</strong> — 从上到下逐一处理，支持字段联动<br>
         • <strong>智能跳过</strong> — 前面选择后自动带出的值不再重复填写<br>
         • 兼容 Element UI / Ant Design / 任意表单
+      </div>
+
+      <!-- 使用说明按钮 -->
+      <button class="help-btn" id="helpBtn">📖 使用说明</button>
+    </div>
+  </div>
+
+  <!-- 使用说明弹窗 -->
+  <div class="help-modal-overlay" id="helpModalOverlay">
+    <div class="help-modal" id="helpModal">
+      <div class="help-modal-header">
+        <h2>📖 智能表单自动填充 · 使用说明</h2>
+        <button class="help-close-btn" id="helpCloseBtn">×</button>
+      </div>
+      <div class="help-modal-body">
+        <div class="help-section">
+          <h3>🚀 快速上手</h3>
+          <p>打开任意包含表单的网页，点击右侧面板的<strong>「一键填写全部字段」</strong>按钮，插件会自动识别页面中的所有表单字段并智能填充测试数据。</p>
+        </div>
+
+        <div class="help-section">
+          <h3>📋 规则模式（默认）</h3>
+          <p>基于字段名称（label/placeholder）智能匹配，自动生成符合语义的测试数据：</p>
+          <ul>
+            <li><strong>合同/订单</strong> → 测试_20260723_1234</li>
+            <li><strong>公司名</strong> → 测试公司1234</li>
+            <li><strong>电话</strong> → 138xxxxxxxx</li>
+            <li><strong>邮箱</strong> → test1234@example.com</li>
+            <li><strong>地址</strong> → 北京市海淀区测试路xxx号</li>
+            <li><strong>金额</strong> → 随机合理数值</li>
+            <li><strong>日期</strong> → 当前日期</li>
+          </ul>
+        </div>
+
+        <div class="help-section">
+          <h3>🤖 AI 智能模式</h3>
+          <p>开启后使用 <strong>DeepSeek AI</strong> 分析表单上下文，生成更真实、更符合业务场景的数据。适合需要高质量测试数据的场景。</p>
+          <p class="help-tip">💡 切换方式：点击面板中的模式徽章或开关即可切换</p>
+        </div>
+
+        <div class="help-section">
+          <h3>✨ 一键填写功能</h3>
+          <ul>
+            <li><strong>自动扫描</strong>：检测页面上所有可填写的输入框、下拉框、级联选择器等</li>
+            <li><strong>iframe 支持</strong>：自动识别并填写同源 iframe 内嵌的表单</li>
+            <li><strong>联动处理</strong>：前面选择后自动带出的值会跳过，避免覆盖</li>
+            <li><strong>禁用字段</strong>：当前禁用的字段会在后续轮次中重试</li>
+            <li><strong>全屏锁定</strong>：填写过程中显示遮罩层，防止误操作</li>
+            <li><strong>实时进度</strong>：显示当前正在处理的字段名称和进度条</li>
+          </ul>
+        </div>
+
+        <div class="help-section">
+          <h3>🗑️ 清空表单</h3>
+          <p>一键清空当前页面所有已填写的表单字段（含 iframe 内嵌字段）。</p>
+        </div>
+
+        <div class="help-section">
+          <h3>🔧 支持的组件类型</h3>
+          <div class="support-grid">
+            <span class="support-tag">Element UI Select</span>
+            <span class="support-tag">Element UI Cascader</span>
+            <span class="support-tag">Element UI DatePicker</span>
+            <span class="support-tag">Ant Design Select</span>
+            <span class="support-tag">Ant Design Cascader</span>
+            <span class="support-tag">原生 Input</span>
+            <span class="support-tag">原生 Select</span>
+            <span class="support-tag">原生 Textarea</span>
+            <span class="support-tag">Radio 单选组</span>
+            <span class="support-tag">数字输入框</span>
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>⌨️ 快捷入口</h3>
+          <ul>
+            <li><strong>浮动按钮 ✏️</strong>：页面右下角紫色圆形按钮，点击弹出快捷菜单</li>
+            <li><strong>扩展图标</strong>：浏览器工具栏点击扩展图标打开完整面板</li>
+            <li><strong>Side Panel</strong>：浏览器右侧完整功能面板</li>
+          </ul>
+        </div>
+
+        <div class="help-section help-section--last">
+          <h3>❓ 常见问题</h3>
+          <p><strong>Q：为什么有些字段没被填写？</strong></p>
+          <p>A：可能是该字段处于隐藏状态、被其他元素遮挡、或属于跨域 iframe（安全限制无法访问）。</p>
+          <br>
+          <p><strong>Q：AI 模式报错怎么办？</strong></p>
+          <p>A：AI 调用失败时会自动回退到规则模式继续填写。请检查网络连接是否正常。</p>
+          <br>
+          <p><strong>Q：如何停止正在进行的填写？</strong></p>
+          <p>A：填写过程中遮罩层上有「⏹ 停止填写」按钮，点击即可立即停止。</p>
+        </div>
+      </div>
+      <div class="help-modal-footer">
+        <span>智能表单自动填充 v<span id="modalVersion">3.7.1</span> · Made with ❤️</span>
       </div>
     </div>
   </div>

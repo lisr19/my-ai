@@ -9,7 +9,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: '🚀 智能表单自动填充 已安装',
-      message: '感谢安装！\n\n点击页面右下角紫色浮动按钮即可自动填写表单。\n\n支持 Element UI / Ant Design / 原生表单 / iframe 内嵌表单',
+      message: '感谢安装！\n\n点击浏览器右侧 Side Panel 面板即可自动填写表单。\n\n支持 Element UI / Ant Design / 原生表单 / iframe 内嵌表单',
       priority: 2
     });
   } else if (details.reason === 'update') {

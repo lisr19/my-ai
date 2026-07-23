@@ -21,27 +21,48 @@
       if (request.action === 'fillForm') {
         setTimeout(function(){
           try {
+            // ★ 统一显示遮罩 + 设置进度回调（所有入口一致）
+            showFilling();
+            if(window._AF && window._AF.setProgressCallback){
+              window._AF.setProgressCallback(function(progress){
+                updateFillingProgress(progress);
+              });
+            }
+
             var result;
             if (typeof window._AF === 'object' && typeof window._AF.fill === 'function') {
               result = window._AF.fill(request.data || {});
               // v7 返回 Promise → 需要异步等待结果
               if (result && typeof result.then === 'function') {
-                result.then(function(r) { sendResponse(r); });
+                result.then(function(r){
+                  hideFilling();
+                  sendResponse(r);
+                }).catch(function(e){
+                  hideFilling();
+                  sendResponse({ success: false, error: e.message });
+                });
                 return true; // keep channel open
               }
+              hideFilling();
               sendResponse(result);
             } else if (typeof window.autoFillForm === 'function') {
               result = window.autoFillForm(request.data || {});
               if (result && typeof result.then === 'function') {
-                result.then(function(r) { sendResponse(r); });
+                result.then(function(r){
+                  hideFilling();
+                  sendResponse(r);
+                });
                 return true;
               }
+              hideFilling();
               sendResponse(result);
             } else {
               result = fillFallback(request.data || {});
+              hideFilling();
               sendResponse(result);
             }
           } catch(e) {
+            hideFilling();
             console.error('[AutoFiller] 填充出错:', e);
             sendResponse({ success: false, error: e.message });
           }
@@ -92,7 +113,7 @@
     return true;
   });
 
-  setTimeout(addFloatingButton, 800);
+  // setTimeout(addFloatingButton, 800); // 已隐藏浮动按钮，统一使用 Side Panel 入口
   
   // ★ 版本更新检测
   checkVersionUpdate();
@@ -103,12 +124,15 @@
 
 // ★ 初始化 AI 配置
 function initAIConfig() {
+  // 内置默认 API Key
+  var DEFAULT_API_KEY = 'sk-e1a584e3325e4e40bb6e048a62ca047f';
   try {
-    chrome.storage.local.get(['af_api_key', 'af_ai_enabled'], function(result) {
-      if (result.af_api_key && typeof window._AF === 'object' && typeof window._AF.setApiKey === 'function') {
-        window._AF.setApiKey(result.af_api_key);
-        console.log('[AutoFiller] AI Key 已加载');
-      }
+    // 先设置内置 Key
+    if (typeof window._AF === 'object' && typeof window._AF.setApiKey === 'function') {
+      window._AF.setApiKey(DEFAULT_API_KEY);
+    }
+    chrome.storage.local.get(['af_ai_enabled'], function(result) {
+      // 读取用户是否启用 AI（Key 已内置，不需要再从 storage 读取）
       if (result.af_ai_enabled !== undefined && typeof window._AF === 'object' && typeof window._AF.enableAI === 'function') {
         window._AF.enableAI(result.af_ai_enabled);
         if (result.af_ai_enabled) console.log('[AutoFiller] AI 模式已启用');
@@ -212,6 +236,14 @@ function addFloatingButton() {
     if(!fillFn){ toast('⚠️ 填充引擎未加载'); if(onDone)onDone(); return; }
 
     showFilling();
+
+    // ★ 设置进度回调：让 autoFiller.js 在处理每个字段时更新遮罩层
+    if(window._AF && window._AF.setProgressCallback){
+      window._AF.setProgressCallback(function(progress){
+        updateFillingProgress(progress);
+      });
+    }
+
     if(panelBtnEl){
       panelBtnEl.disabled = true;
       panelBtnEl.innerHTML = '<span class="af-spinner"></span>正在填写...';
@@ -518,27 +550,68 @@ function toast(msg) {
   setTimeout(function(){el.classList.remove('show');setTimeout(function(){el.remove()},300);},3500);
 }
 
-// 页面居中填充加载弹窗
+// 页面居中填充加载弹窗（增强版 v3.8.0）
+// ★ 支持区分规则/AI模式 + 实时进度显示 + 全屏锁定
 var _afFillingOverlay = null;
+var _afProgressEl = null;  // 进度文本元素引用
+
 function showFilling(){
   hideFilling();
+
+  // 检测当前模式
+  var isAI = false;
+  try { isAI = window._AF && window._AF.isAIEnabled && window._AF.isAIEnabled(); } catch(e) {}
+
+  var modeIcon = isAI ? '🤖' : '📋';
+  var modeText = isAI ? 'AI 智能模式' : '规则模式';
+  var modeDesc = isAI ? 'DeepSeek 正在智能分析表单...' : '正在按规则匹配字段...';
+
   var overlay = document.createElement('div');
   overlay.className = 'af-filling-overlay';
   overlay.innerHTML =
     '<div class="af-filling-card">'+
       '<div class="af-filling-spinner"></div>'+
-      '<div class="af-filling-title">🪄 正在自动填写表单</div>'+
-      '<div class="af-filling-sub">请稍候，填写完成后自动关闭</div>'+
+      '<div class="af-filling-mode-badge '+(isAI?'mode-ai':'mode-rule')+'">'+modeIcon+' '+modeText+'</div>'+
+      '<div class="af-filling-title">正在自动填写表单</div>'+
+      '<div class="af-filling-sub">'+modeDesc+'</div>'+
+      '<div class="af-filling-progress">准备中...</div>'+
+      '<div class="af-filling-progress-bar"><div class="af-filling-progress-fill"></div></div>'+
       '<button class="af-filling-stop-btn">⏹ 停止填写</button>'+
     '</div>';
+
+  // 停止按钮事件
   overlay.querySelector('.af-filling-stop-btn').addEventListener('click', function(e){
     e.stopPropagation();
     try{ if(window._AF&&window._AF.stop)window._AF.stop(); }catch(e){}
     hideFilling();
     setTimeout(function(){ toast('⏹ 已停止填写'); }, 260);
   });
+
   document.body.appendChild(overlay);
   _afFillingOverlay = overlay;
+  _afProgressEl = overlay.querySelector('.af-filling-progress');
+}
+
+/**
+ * 更新填充进度（由 autoFiller.js 调用）
+ * @param {Object} progress - { current: string, index: number, total: number, fieldLabel: string }
+ */
+function updateFillingProgress(progress){
+  if(!_afFillingOverlay || !_afProgressEl) return;
+
+  // 更新进度文本
+  if(progress && progress.fieldLabel){
+    var txt = '['+ (progress.index||0) +'/'+ (progress.total||'?') +'] ' + progress.fieldLabel;
+    if(progress.action) txt += ' → ' + progress.action;
+    _afProgressEl.textContent = txt;
+  }
+
+  // 更新进度条
+  var fillBar = _afFillingOverlay.querySelector('.af-filling-progress-fill');
+  if(fillBar && progress && progress.total > 0){
+    var pct = Math.min(100, Math.round((progress.index / progress.total) * 100));
+    fillBar.style.width = pct + '%';
+  }
 }
 
 function hideFilling(){
@@ -546,6 +619,7 @@ function hideFilling(){
   _afFillingOverlay.classList.add('af-filling-overlay--out');
   var el = _afFillingOverlay;
   _afFillingOverlay = null;
+  _afProgressEl = null;
   setTimeout(function(){
     if(el.parentNode) el.parentNode.removeChild(el);
   }, 220);
