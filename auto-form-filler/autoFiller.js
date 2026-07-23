@@ -62,20 +62,40 @@ function _afDelay(kind){
 // ============================================================
 
 function getAllDocuments() {
-  var docs = [document]; // 主文档
+  var docs = [document];
   try {
+    // ★ 如果当前在 iframe 中，先加入 top document
+    if(window.top && window.top !== window){
+      try {
+        var topDoc = window.top.document;
+        if(topDoc && topDoc !== document && docs.indexOf(topDoc) === -1){
+          docs.push(topDoc);
+        }
+      } catch(e) {}
+    }
+    // 加入所有同源 iframe 的 document
     var iframes = document.querySelectorAll('iframe');
     for (var i = 0; i < iframes.length; i++) {
       try {
         var doc = iframes[i].contentDocument;
-        // 跨域 iframe 访问会抛出 SecurityError
-        if (doc && doc !== document) {
+        if (doc && doc !== document && docs.indexOf(doc) === -1) {
           docs.push(doc);
-          console.log('[v9] 发现可访问iframe #' + i + ': ' + (iframes[i].src || '(无src)').slice(0, 80));
         }
-      } catch (err) {
-        console.log('[v9] iframe #' + i + ' 跨域不可访问');
-      }
+      } catch (err) {}
+    }
+    // ★ 同时搜索 top document 中的 iframe（如果当前在 iframe 中）
+    if(window.top && window.top !== window){
+      try {
+        var topIframes = window.top.document.querySelectorAll('iframe');
+        for (var j = 0; j < topIframes.length; j++) {
+          try {
+            var tDoc = topIframes[j].contentDocument;
+            if(tDoc && tDoc !== document && docs.indexOf(tDoc) === -1){
+              docs.push(tDoc);
+            }
+          } catch(e) {}
+        }
+      } catch(e) {}
     }
   } catch(e) {}
   return docs;
@@ -754,8 +774,23 @@ function getFieldCurrentValue(el){
   // el-cascader / ant-cascader
   if(wrap && (wrap.classList.contains('el-cascader') || /(?:^| )el-cascader(?: |$)/.test(wrap.className) ||
       wrap.classList.contains('ant-cascader'))){
+    // ★ 多选模式：值在 tag 中（如签约房间的多选级联器）
+    var cascaderTags = wrap.querySelectorAll('.el-tag__content,.el-cascader__tags-text,.el-cascader .el-tag span');
+    if(cascaderTags && cascaderTags.length > 0){
+      var tagTexts = [];
+      for(var ti=0; ti<cascaderTags.length; ti++){
+        var tt = (cascaderTags[ti].textContent||'').trim();
+        if(tt) tagTexts.push(tt);
+      }
+      if(tagTexts.length > 0) return tagTexts.join(', ');
+    }
+    // ★ 单选模式：值在 label 中
     var cl = wrap.querySelector('.el-cascader__label,.ant-cascader-picker-label');
-    if(cl && cl.textContent.trim()) return cl.textContent.trim();
+    if(cl && cl.textContent.trim()){
+      var labelText = cl.textContent.trim();
+      // 排除 placeholder 文本
+      if(!/^请选择|^选择|^select/i.test(labelText)) return labelText;
+    }
   }
 
   // date-picker
@@ -1216,25 +1251,28 @@ function fireFullClick(el){
  * 用于 expandTrigger: 'hover' 模式的 el-cascader：
  *   hover 非叶子节点 → 展开下一级
  *   hover 叶子节点 → 仅高亮（不选中）
+ * ★ 增强：带坐标 + mousemove（Element Plus menu.mjs 的 handleMouseMove 需要）
  */
 function fireHover(el){
   if(!el) return;
   var doc = el.ownerDocument || document;
   var win = doc.defaultView || window;
-  // 只发 hover 相关事件，不发 pointerdown/mousedown/click
-  var hoverSeq = ['pointerover','pointerenter','mouseover','mouseenter'];
-  for(var i=0;i<hoverSeq.length;i++){
-    var name = hoverSeq[i];
-    try{
-      var ev;
-      if(win.PointerEvent){
-        ev = new win.PointerEvent(name,{bubbles:true,cancelable:true,view:win,pointerType:'mouse',button:0});
-      }else{
-        ev = new win.MouseEvent(name,{bubbles:true,cancelable:true,view:win});
-      }
-      el.dispatchEvent(ev);
-    }catch(e){}
-  }
+  var rect = el.getBoundingClientRect();
+  var cx = rect.left + rect.width/2;
+  var cy = rect.top + rect.height/2;
+  // mouseover（冒泡）
+  try{ el.dispatchEvent(new win.MouseEvent('mouseover',{bubbles:true,cancelable:true,view:win,clientX:cx,clientY:cy,relatedTarget:null,button:0})); }catch(e){}
+  // mouseenter（不冒泡）
+  try{ el.dispatchEvent(new win.MouseEvent('mouseenter',{bubbles:false,cancelable:false,view:win,clientX:cx,clientY:cy,relatedTarget:null,button:0})); }catch(e){}
+  // pointerover / pointerenter
+  try{
+    if(win.PointerEvent){
+      el.dispatchEvent(new win.PointerEvent('pointerover',{bubbles:true,cancelable:true,view:win,pointerType:'mouse',clientX:cx,clientY:cy,button:0}));
+      el.dispatchEvent(new win.PointerEvent('pointerenter',{bubbles:false,cancelable:false,view:win,pointerType:'mouse',clientX:cx,clientY:cy,button:0}));
+    }
+  }catch(e){}
+  // mousemove（Element Plus menu.mjs 的 handleMouseMove 需要）
+  try{ el.dispatchEvent(new win.MouseEvent('mousemove',{bubbles:true,cancelable:true,view:win,clientX:cx,clientY:cy,button:0})); }catch(e){}
 }
 
 // ---- el-cascader 级联器（跨文档支持）----
@@ -1255,15 +1293,43 @@ function doCascaderSelect(inpEl,lbl,aiPath){
         if(!panel) panel=findCascadePanelGlobal();
         if(!panel){console.log('    级联面板未找到!');resolve('');return;}
         
-        if(aiPath && aiPath.length > 0){
-          console.log('    🤖 按AI路径选择: ['+aiPath.join(' / ')+']');
-          cascadeRecursiveByPath(panel, 0, aiPath, [], resolve);
-        } else {
-          console.log('    级联面板OK，开始递归...');
-          cascadeRecursive(panel, 0, 10, [], resolve);
+        // ★ 确认面板有菜单列（防止拿到空面板或已关闭的面板）
+        var menuCount = panel.querySelectorAll(CASCADE_MENU_SEL).length;
+        if(menuCount === 0){
+          console.log('    级联面板为空(0列)，重试打开...');
+          // 重试一次：先关闭可能残留的状态，再重新打开
+          closeDropdown(doc);
+          setTimeout(function(){
+            trigger.focus();
+            trigger.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
+            setTimeout(function(){
+              trigger.click();
+              setTimeout(function(){
+                var panel2=findCascadePanel(wrapper, doc);
+                if(!panel2){console.log('    重试后面板仍未找到!');resolve('');return;}
+                startCascadeSelection(panel2, aiPath, resolve);
+              },450);
+            },120);
+          },200);
+          return;
         }
+
+        startCascadeSelection(panel, aiPath, resolve);
       },450);
     },120)});
+}
+
+/**
+ * 启动级联选择（统一入口，避免重复代码）
+ */
+function startCascadeSelection(panel, aiPath, resolve){
+  if(aiPath && aiPath.length > 0){
+    console.log('    🤖 按AI路径选择: ['+aiPath.join(' / ')+']');
+    cascadeRecursiveByPath(panel, 0, aiPath, [], resolve);
+  } else {
+    console.log('    级联面板OK，开始递归...');
+    cascadeRecursive(panel, 0, 10, [], resolve);
+  }
 }
 
 function findCascadePanel(w, doc){
@@ -1308,71 +1374,106 @@ function cascadeRecursive(panel,level,max,path,done){
   var txt=((labelEl?labelEl.textContent:node.textContent)||'').trim().slice(0,25);
   path.push(txt);
 
-  // ★★★ 核心策略：两阶段尝试，兼容 expandTrigger:'hover' 和 'click' 两种模式 ★★★
-  //
-  // 阶段1: fireHover(node) + 等待 → 如果下一级出现节点（hover 模式下展开），递归
-  // 阶段2: fireFullClick(node) + 等待 → 如果下一级出现节点（click 模式下展开），递归
-  //         如果仍未出现下一级 → 确认是叶子，已被 click 选中，关闭面板
-  //
-  // 关键：fireFullClick 同时包含 hover 事件和 click 事件，所以即使在 hover 模式下
-  //       点击叶子节点也能正确触发"选中"（Element Plus 内部 click 处理器会调用 handleCheck）
+  // ★ 检测是否多选模式（有 checkbox）
+  var isMultiple = !!panel.querySelector('.el-checkbox') || !!node.querySelector('.el-checkbox');
+  // ★ 用 aria-haspopup 判断叶子/非叶子
+  var isLeaf = node.getAttribute('aria-haspopup') !== 'true';
+  if(!node.hasAttribute('aria-haspopup')){
+    isLeaf = node.classList.contains('is-leaf') ||
+             (!node.querySelector('.el-cascader-node__postfix,.arrow-right') &&
+              !node.querySelector('[class*="expand-icon"]'));
+  }
+
   setTimeout(function(){
-    console.log('    [级联 L'+level+'] 处理 "'+txt+'" [列'+(menus?menus.length:0)+'/'+(level+1)+']');
-    tryCascadeLevel(panel, level, node, function(hasNext){
-      if(hasNext){
-        // 非叶子：递归到下一级
-        cascadeRecursive(panel, level+1, max, path, done);
+    console.log('    [级联 L'+level+'] "'+txt+'" '+(isLeaf?'叶子':'非叶子')+(isMultiple?' [多选]':' [单选]')+' [列'+(menus?menus.length:0)+'/'+(level+1)+']');
+
+    if(isMultiple){
+      // ★★ 多选模式：需要勾选叶子节点的 checkbox ★★
+      if(isLeaf){
+        // 多选模式叶子：click checkbox（不是 click node）
+        var checkbox = node.querySelector('.el-checkbox');
+        if(checkbox){
+          // click checkbox 的 input 或 .el-checkbox__inner
+          var checkboxInput = checkbox.querySelector('input.el-checkbox__original,input[type=checkbox]') || checkbox;
+          checkboxInput.click();
+          console.log('    [级联 L'+level+'] "'+txt+'" 多选叶子 checkbox 已 click');
+
+          // ★ 验证是否真的选中了
+          setTimeout(function(){
+            var isChecked = checkboxInput.checked ||
+                           checkbox.classList.contains('is-checked') ||
+                           !!checkbox.querySelector('.is-checked');
+            if(!isChecked){
+              console.log('    [级联 L'+level+'] "'+txt+'" checkbox 未选中，重试 fireFullClick');
+              fireFullClick(checkboxInput);
+            }
+            setTimeout(function(){
+              closeDropdown(getOwnerDoc(panel));
+              done(path.join(' > '));
+            }, 200);
+          }, 150);
+        } else {
+          // 没找到 checkbox，直接 click node
+          node.click();
+          console.log('    [级联 L'+level+'] "'+txt+'" 多选叶子 node 已 click (fallback)');
+          setTimeout(function(){
+            closeDropdown(getOwnerDoc(panel));
+            done(path.join(' > '));
+          }, 300);
+        }
       } else {
-        // 叶子：已被选中，关闭面板
-        console.log('    [级联 L'+level+'] "'+txt+'" 是叶子，选中完成');
+        // 多选模式非叶子：展开下一级（hover 或 click）
+        expandAndRecurse(panel, level, node, max, path, done);
+      }
+    } else {
+      // ★★ 单选模式 ★★
+      if(isLeaf){
+        // 单选叶子：直接 click node 选中
+        node.click();
+        console.log('    [级联 L'+level+'] "'+txt+'" 单选叶子已 click 选中');
         setTimeout(function(){
           closeDropdown(getOwnerDoc(panel));
           done(path.join(' > '));
         }, 300);
+      } else {
+        // 单选非叶子：展开下一级
+        expandAndRecurse(panel, level, node, max, path, done);
       }
-    });
-  },120);
-}
-
-/**
- * 两阶段尝试展开/选中节点（兼容 hover 和 click 模式）
- * @param {Element} panel - el-cascader-panel
- * @param {number} level - 当前级
- * @param {Element} node - 当前节点
- * @param {function} cb - callback(hasNext: boolean)
- *   hasNext=true 表示节点是非叶子（已展开下一级）
- *   hasNext=false 表示节点是叶子（已被 click 选中）
- */
-function tryCascadeLevel(panel, level, node, cb){
-  // 获取下一级 menu 的节点数（用于判断是否展开了下一级）
-  function getNextNodeCount(){
-    var menus = panel.querySelectorAll(CASCADE_MENU_SEL);
-    if(menus.length <= level + 1) return 0;
-    var nextMenu = menus[level + 1];
-    if(!nextMenu) return 0;
-    return nextMenu.querySelectorAll(CASCADE_NODE_SEL).length;
-  }
-
-  // ★ 阶段1: fireHover — hover 模式下会展开下一级
-  fireHover(node);
-  // 等 Vue nextTick + 动画完成（hover 模式下展开有 200ms 过渡）
-  setTimeout(function(){
-    if(getNextNodeCount() > 0){
-      cb(true); return;
     }
-    // ★ 阶段2: fireFullClick — click 模式下会展开下一级 / 叶子模式下会选中
-    fireFullClick(node);
-    setTimeout(function(){
-      if(getNextNodeCount() > 0){
-        cb(true); return;
-      }
-      // 仍未出现下一级 → 确认是叶子节点，已被 click 选中
-      cb(false);
-    }, 350);
-  }, 250);
+  }, 120);
 }
 
-/** ★ 按 AI 给定路径选择（完全基于 cascadeRecursive 的稳定逻辑改造） */
+// 通用：展开非叶子节点并递归（兼容 hover 和 click 模式）
+function expandAndRecurse(panel, level, node, max, path, done){
+  // ★ 同时 hover + click（hover 模式下 mouseenter 生效，click 模式下 click 生效，互不干扰）
+  fireHover(node);
+  node.click();
+  // 等 Vue nextTick + DOM 更新
+  setTimeout(function(){
+    if(getNextMenuNodeCount(panel, level) > 0){
+      cascadeRecursive(panel, level+1, max, path, done);
+    } else {
+      // 没展开 → 可能是叶子（aria-haspopup 判断有误），兜底再 click 一次
+      console.log('    [级联 L'+level+'] "'+node.textContent.trim().slice(0,20)+'" 未展开，兜底视为叶子');
+      node.click();
+      setTimeout(function(){
+        closeDropdown(getOwnerDoc(panel));
+        done(path.join(' > '));
+      }, 300);
+    }
+  }, 300);
+}
+
+// 获取下一级 menu 的节点数
+function getNextMenuNodeCount(panel, level){
+  var menus = panel.querySelectorAll(CASCADE_MENU_SEL);
+  if(menus.length <= level + 1) return 0;
+  var nextMenu = menus[level + 1];
+  if(!nextMenu) return 0;
+  return nextMenu.querySelectorAll(CASCADE_NODE_SEL).length;
+}
+
+/** ★ 按 AI 给定路径选择（与 cascadeRecursive 相同的 aria-haspopup 策略） */
 function cascadeRecursiveByPath(panel, level, aiPath, path, done){
   if(level >= aiPath.length){
     closeDropdown(getOwnerDoc(panel));
@@ -1426,20 +1527,88 @@ function cascadeRecursiveByPath(panel, level, aiPath, path, done){
   var matchedTxt = ((labelEl?labelEl.textContent:matchedNode.textContent)||'').trim();
   path.push(matchedTxt);
 
+  // ★ 检测是否多选模式
+  var isMultiple = !!panel.querySelector('.el-checkbox') || !!matchedNode.querySelector('.el-checkbox');
+  // ★ 用 aria-haspopup 判断叶子/非叶子
+  var isLeaf = matchedNode.getAttribute('aria-haspopup') !== 'true';
+  if(!matchedNode.hasAttribute('aria-haspopup')){
+    isLeaf = matchedNode.classList.contains('is-leaf') ||
+             (!matchedNode.querySelector('.el-cascader-node__postfix,.arrow-right') &&
+              !matchedNode.querySelector('[class*="expand-icon"]'));
+  }
+
   setTimeout(function(){
-    console.log('    [AI级联 L'+level+'] 处理 "'+matchedTxt+'" [列'+(menus?menus.length:0)+'/'+(level+1)+']');
-    tryCascadeLevel(panel, level, matchedNode, function(hasNext){
-      if(hasNext){
-        cascadeRecursiveByPath(panel, level+1, aiPath, path, done);
+    console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" '+(isLeaf?'叶子':'非叶子')+(isMultiple?' [多选]':' [单选]')+' [列'+(menus?menus.length:0)+'/'+(level+1)+']');
+
+    if(isMultiple){
+      if(isLeaf){
+        // 多选叶子：click checkbox（带验证和重试）
+        var checkbox = matchedNode.querySelector('.el-checkbox');
+        if(checkbox){
+          var checkboxInput = checkbox.querySelector('input.el-checkbox__original,input[type=checkbox]') || checkbox;
+          checkboxInput.click();
+          console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" 多选叶子 checkbox 已 click');
+
+          // ★ 验证是否真的选中了
+          setTimeout(function(){
+            var isChecked = checkboxInput.checked ||
+                           checkbox.classList.contains('is-checked') ||
+                           !!checkbox.querySelector('.is-checked');
+            if(!isChecked){
+              console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" checkbox 未选中，重试 fireFullClick');
+              fireFullClick(checkboxInput);
+            }
+            setTimeout(function(){
+              closeDropdown(getOwnerDoc(panel));
+              done(path.join(' > '));
+            }, 200);
+          }, 150);
+        } else {
+          matchedNode.click();
+          console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" 多选叶子 node click (fallback)');
+          setTimeout(function(){
+            closeDropdown(getOwnerDoc(panel));
+            done(path.join(' > '));
+          }, 300);
+        }
       } else {
-        console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" 是叶子，选中完成');
+        // 多选非叶子：同时 hover + click 展开
+        fireHover(matchedNode);
+        matchedNode.click();
+        setTimeout(function(){
+          if(getNextMenuNodeCount(panel, level) > 0){
+            cascadeRecursiveByPath(panel, level+1, aiPath, path, done);
+          } else {
+            matchedNode.click();
+            setTimeout(function(){ closeDropdown(getOwnerDoc(panel)); done(path.join(' > ')); }, 300);
+          }
+        }, 300);
+      }
+    } else {
+      // 单选模式
+      if(isLeaf){
+        matchedNode.click();
+        console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" 单选叶子已 click 选中');
         setTimeout(function(){
           closeDropdown(getOwnerDoc(panel));
           done(path.join(' > '));
         }, 300);
+      } else {
+        // 单选非叶子：同时 hover + click 展开
+        fireHover(matchedNode);
+        matchedNode.click();
+        setTimeout(function(){
+          if(getNextMenuNodeCount(panel, level) > 0){
+            cascadeRecursiveByPath(panel, level+1, aiPath, path, done);
+          } else {
+            console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" 未展开，兜底视为叶子');
+            matchedNode.click();
+            setTimeout(function(){ closeDropdown(getOwnerDoc(panel)); done(path.join(' > ')); }, 300);
+          }
+        }, 300);
       }
-    });
-  },120);
+    }
+  }, 120);
 }
 
 /**

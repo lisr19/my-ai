@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "智能表单自动填充",
-  "version": "3.6.3",
+  "version": "3.7.1",
   "description": "一键自动填写任意网页表单，零配置，支持Element UI/Ant Design等所有框架，支持iframe内嵌表单，支持DeepSeek AI智能生成数据",
   "permissions": ["activeTab", "storage", "notifications", "sidePanel"],
   "host_permissions": ["https://api.deepseek.com/*"],
