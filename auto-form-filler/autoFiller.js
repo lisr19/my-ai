@@ -1211,6 +1211,32 @@ function fireFullClick(el){
   try{ el.click && el.click(); }catch(e){}
 }
 
+/**
+ * 只派发 hover/mouseover 系列事件（不派发 click）
+ * 用于 expandTrigger: 'hover' 模式的 el-cascader：
+ *   hover 非叶子节点 → 展开下一级
+ *   hover 叶子节点 → 仅高亮（不选中）
+ */
+function fireHover(el){
+  if(!el) return;
+  var doc = el.ownerDocument || document;
+  var win = doc.defaultView || window;
+  // 只发 hover 相关事件，不发 pointerdown/mousedown/click
+  var hoverSeq = ['pointerover','pointerenter','mouseover','mouseenter'];
+  for(var i=0;i<hoverSeq.length;i++){
+    var name = hoverSeq[i];
+    try{
+      var ev;
+      if(win.PointerEvent){
+        ev = new win.PointerEvent(name,{bubbles:true,cancelable:true,view:win,pointerType:'mouse',button:0});
+      }else{
+        ev = new win.MouseEvent(name,{bubbles:true,cancelable:true,view:win});
+      }
+      el.dispatchEvent(ev);
+    }catch(e){}
+  }
+}
+
 // ---- el-cascader 级联器（跨文档支持）----
 // 原始版本（规则模式）：自动选第一项
 function doCascaderSelect(inpEl,lbl,aiPath){
@@ -1234,7 +1260,7 @@ function doCascaderSelect(inpEl,lbl,aiPath){
           cascadeRecursiveByPath(panel, 0, aiPath, [], resolve);
         } else {
           console.log('    级联面板OK，开始递归...');
-          cascadeRecursive(panel,0,6,[],resolve);
+          cascadeRecursive(panel, 0, 10, [], resolve);
         }
       },450);
     },120)});
@@ -1277,51 +1303,73 @@ function cascadeRecursive(panel,level,max,path,done){
   var node=menu.querySelector(CASCADE_NODE_SEL);
   if(!node){closeDropdown(getOwnerDoc(panel));done(path.join(' > ')||'(无)');return;}
 
-  // 文本：优先取 label，避免把箭头/checkbox 的内容拼进来
+  // 文本：优先取 label
   var labelEl=node.querySelector('.el-cascader-node__label,.ant-cascader-menu-item-content');
   var txt=((labelEl?labelEl.textContent:node.textContent)||'').trim().slice(0,25);
   path.push(txt);
 
-  // 叶子判定：以 is-leaf 类为主，回退到"无展开图标"
-  var isLeaf=node.classList.contains('is-leaf');
-  if(!isLeaf){
-    var hasExpand=node.querySelector('.el-cascader-node__postfix,.ant-cascader-menu-item-expand-icon,[class*="expand-icon"]');
-    if(!hasExpand && !node.querySelector('[aria-expanded]')) isLeaf=true;
-  }
-  
-  // ★ 增强叶子判定：如果当前列是最后一列，也视为叶子
-  if(!isLeaf){
-    var allMenus=panel.querySelectorAll(CASCADE_MENU_SEL);
-    if(allMenus && allMenus.length <= level+1){
-      isLeaf=true;
-    }
-  }
-
-  // 用统一的完整事件序列点击节点
+  // ★★★ 核心策略：两阶段尝试，兼容 expandTrigger:'hover' 和 'click' 两种模式 ★★★
+  //
+  // 阶段1: fireHover(node) + 等待 → 如果下一级出现节点（hover 模式下展开），递归
+  // 阶段2: fireFullClick(node) + 等待 → 如果下一级出现节点（click 模式下展开），递归
+  //         如果仍未出现下一级 → 确认是叶子，已被 click 选中，关闭面板
+  //
+  // 关键：fireFullClick 同时包含 hover 事件和 click 事件，所以即使在 hover 模式下
+  //       点击叶子节点也能正确触发"选中"（Element Plus 内部 click 处理器会调用 handleCheck）
   setTimeout(function(){
-    fireFullClick(node);
-    console.log('    [级联 L'+level+'] -> "'+txt+'"'+(isLeaf?' (叶子✓)':'')+' [列'+(menus?menus.length:0)+'/'+(level+1)+']');
-
-    if(isLeaf){
-      // ★ 叶子：等待足够长时间让 Element Plus 完成值同步，再用 Escape 关闭面板
-      setTimeout(function(){
-        closeDropdown(getOwnerDoc(panel));
-        done(path.join(' > '));
-      },500);
-      return;
-    }
-
-    // 非叶子：轮询等待下一级菜单出现
-    waitForCascadeColumn(panel,level+1,function(ok){
-      if(ok){
-        cascadeRecursive(panel,level+1,max,path,done);
-      }else{
-        console.log('    [级联 L'+level+'] 下一级未出现，结束');
-        closeDropdown(getOwnerDoc(panel));
-        done(path.join(' > '));
+    console.log('    [级联 L'+level+'] 处理 "'+txt+'" [列'+(menus?menus.length:0)+'/'+(level+1)+']');
+    tryCascadeLevel(panel, level, node, function(hasNext){
+      if(hasNext){
+        // 非叶子：递归到下一级
+        cascadeRecursive(panel, level+1, max, path, done);
+      } else {
+        // 叶子：已被选中，关闭面板
+        console.log('    [级联 L'+level+'] "'+txt+'" 是叶子，选中完成');
+        setTimeout(function(){
+          closeDropdown(getOwnerDoc(panel));
+          done(path.join(' > '));
+        }, 300);
       }
     });
   },120);
+}
+
+/**
+ * 两阶段尝试展开/选中节点（兼容 hover 和 click 模式）
+ * @param {Element} panel - el-cascader-panel
+ * @param {number} level - 当前级
+ * @param {Element} node - 当前节点
+ * @param {function} cb - callback(hasNext: boolean)
+ *   hasNext=true 表示节点是非叶子（已展开下一级）
+ *   hasNext=false 表示节点是叶子（已被 click 选中）
+ */
+function tryCascadeLevel(panel, level, node, cb){
+  // 获取下一级 menu 的节点数（用于判断是否展开了下一级）
+  function getNextNodeCount(){
+    var menus = panel.querySelectorAll(CASCADE_MENU_SEL);
+    if(menus.length <= level + 1) return 0;
+    var nextMenu = menus[level + 1];
+    if(!nextMenu) return 0;
+    return nextMenu.querySelectorAll(CASCADE_NODE_SEL).length;
+  }
+
+  // ★ 阶段1: fireHover — hover 模式下会展开下一级
+  fireHover(node);
+  // 等 Vue nextTick + 动画完成（hover 模式下展开有 200ms 过渡）
+  setTimeout(function(){
+    if(getNextNodeCount() > 0){
+      cb(true); return;
+    }
+    // ★ 阶段2: fireFullClick — click 模式下会展开下一级 / 叶子模式下会选中
+    fireFullClick(node);
+    setTimeout(function(){
+      if(getNextNodeCount() > 0){
+        cb(true); return;
+      }
+      // 仍未出现下一级 → 确认是叶子节点，已被 click 选中
+      cb(false);
+    }, 350);
+  }, 250);
 }
 
 /** ★ 按 AI 给定路径选择（完全基于 cascadeRecursive 的稳定逻辑改造） */
@@ -1333,7 +1381,6 @@ function cascadeRecursiveByPath(panel, level, aiPath, path, done){
   }
 
   var wantText = aiPath[level];
-  // ★ 和 cascadeRecursive 完全一致的取列逻辑
   var menus = panel.querySelectorAll(CASCADE_MENU_SEL);
   if(!menus || menus.length <= level){
     console.log('    [AI级联 L'+level+'] 菜单列不足('+(menus?menus.length:0)+'列)');
@@ -1351,7 +1398,7 @@ function cascadeRecursiveByPath(panel, level, aiPath, path, done){
     return;
   }
 
-  // ★ 在列内找匹配节点（唯一和 cascadeRecursive 不同的地方）
+  // ★ 在列内找匹配节点
   var matchedNode = null;
   for(var i=0; i<allNodes.length; i++){
     var n = allNodes[i];
@@ -1361,7 +1408,6 @@ function cascadeRecursiveByPath(panel, level, aiPath, path, done){
     if(txt === wantText ||
        txt.indexOf(wantText) >= 0 ||
        wantText.indexOf(txt) >= 0 ||
-       // 去除各类后缀匹配
        txt.replace(/[@#（(][^)）]*[)）]?/g,'').trim() === wantText ||
        wantText.replace(/[@#（(][^)）]*[)）]?/g,'').trim() === txt ||
        txt.replace(/[省市区县旗栋楼层单元室号]/g,'') === wantText.replace(/[省市区县旗栋楼层单元室号]/g,'')){
@@ -1370,56 +1416,84 @@ function cascadeRecursiveByPath(panel, level, aiPath, path, done){
     }
   }
 
-  // 找不到 → 兜底选第一个（和 cascadeRecursive 行为一致）
+  // 找不到 → 兜底选第一个
   if(!matchedNode){
     console.log('    [AI级联 L'+level+'] 未匹配"'+wantText+'"，兜底选第一项');
     matchedNode = allNodes[0];
   }
 
-  // ★ 以下和 cascadeRecursive 完全一致的逻辑
   var labelEl = matchedNode.querySelector('.el-cascader-node__label,.ant-cascader-menu-item-content');
   var matchedTxt = ((labelEl?labelEl.textContent:matchedNode.textContent)||'').trim();
   path.push(matchedTxt);
 
-  var isLeaf = matchedNode.classList.contains('is-leaf');
-  if(!isLeaf){
-    var hasExpand = matchedNode.querySelector('.el-cascader-node__postfix,.ant-cascader-menu-item-expand-icon,[class*="expand-icon"]');
-    if(!hasExpand && !matchedNode.querySelector('[aria-expanded]')) isLeaf = true;
-  }
-  
-  // ★ 增强叶子判定：当前列是最后一列时强制设为叶子（与 cascadeRecursive 保持一致）
-  if(!isLeaf){
-    var allMenusPath=panel.querySelectorAll(CASCADE_MENU_SEL);
-    if(allMenusPath && allMenusPath.length <= level+1){
-      isLeaf=true;
-    }
-  }
-
   setTimeout(function(){
-    fireFullClick(matchedNode);
-    console.log('    [AI级联 L'+level+'] -> "'+matchedTxt+'"'+(isLeaf?' (叶子✓)':'')+' [列'+(allMenusPath?allMenusPath.length:0)+'/'+(level+1)+']');
-
-    if(isLeaf){
-      // ★ 叶子：与 cascadeRecursive 完全一致 - 等待 + closeDropdown
-      setTimeout(function(){
-        closeDropdown(getOwnerDoc(panel));
-        done(path.join(' > '));
-      },500);
-      return;
-    }
-
-    waitForCascadeColumn(panel, level+1, function(ok){
-      if(ok){
+    console.log('    [AI级联 L'+level+'] 处理 "'+matchedTxt+'" [列'+(menus?menus.length:0)+'/'+(level+1)+']');
+    tryCascadeLevel(panel, level, matchedNode, function(hasNext){
+      if(hasNext){
         cascadeRecursiveByPath(panel, level+1, aiPath, path, done);
-      }else{
-        console.log('    [AI级联 L'+level+'] 下一级未出现，结束');
-        closeDropdown(getOwnerDoc(panel));
-        done(path.join(' > '));
+      } else {
+        console.log('    [AI级联 L'+level+'] "'+matchedTxt+'" 是叶子，选中完成');
+        setTimeout(function(){
+          closeDropdown(getOwnerDoc(panel));
+          done(path.join(' > '));
+        }, 300);
       }
     });
   },120);
 }
 
+/**
+ * 等待下一级菜单出现真实节点 / 面板已关闭（"观察式"叶子判定）
+ * 解决 Element Plus 在 5 级级联中"点中非叶子节点但被误判为叶子"的 bug
+ *
+ * @param {Element} panel - el-cascader-panel 元素
+ * @param {number} level - 当前节点所在的级（0-based）
+ * @param {Element} clickedNode - 刚刚点击的节点元素
+ * @param {function} cb - 回调，参数: 'hasNext' | 'leaf' | 'timeout'
+ *
+ * 判定逻辑（轮询最多 ~5s）：
+ *  1) panel 已不可见/已从 DOM 移除 → 面板关闭 → 'leaf'
+ *  2) 当前节点变为激活状态(in-active-path / is-active) 且 面板还在 → 说明是叶子被选中 → 'leaf'
+ *  3) 下一级 menu(>=level+1) 出现新节点(数量 > 0) → 'hasNext'
+ *  4) 轮询超时 → 'timeout' (兜底视为叶子)
+ */
+function waitForCascadeColumnOrClose(panel, level, clickedNode, cb){
+  var attempts = 0;
+  var maxAttempts = 25;   // 25 * 200ms = 5s
+  var interval = 200;
+  (function check(){
+    attempts++;
+    // 1) 面板已关闭/移除 → 叶子
+    if(!panel || !panel.isConnected || !vis(panel)){
+      cb('leaf'); return;
+    }
+    // 2) 找到当前 level+1 列 menu
+    var menus = panel.querySelectorAll(CASCADE_MENU_SEL);
+    if(menus.length > level + 1){
+      var nextMenu = menus[level + 1];
+      if(nextMenu){
+        var nodes = nextMenu.querySelectorAll(CASCADE_NODE_SEL);
+        if(nodes && nodes.length > 0){
+          // 下一级有真实可点击节点 → 确认是非叶子（递归）
+          cb('hasNext'); return;
+        }
+      }
+    }
+    // 3) 检查当前节点是否已被标记为"激活"（叶子被选中时会有 in-active-path）
+    if(clickedNode && (clickedNode.classList.contains('in-active-path') ||
+                       clickedNode.classList.contains('is-active') ||
+                       clickedNode.classList.contains('is-selected'))){
+      cb('leaf'); return;
+    }
+    // 4) 轮询超时
+    if(attempts >= maxAttempts){
+      cb('timeout'); return;
+    }
+    setTimeout(check, interval);
+  })();
+}
+
+// 保留旧的 waitForCascadeColumn 以防其他地方还在用（虽然现在没人调用了）
 function waitForCascadeColumn(panel,expectedLevel,cb){
   var attempts=0, maxAttempts=12, interval=180;
   (function check(){

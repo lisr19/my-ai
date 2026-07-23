@@ -1,5 +1,128 @@
 # 更新日志 (CHANGELOG)
 
+## [3.6.3] - 2026-07-23
+
+### 🐛 修复（hover 模式改造过度导致 click 模式失效 + 叶子节点未选中）
+- **现象**：v3.6.2 改造后：
+  - 签约房间的级联器（hover 模式）仍未选中
+  - **注册地址的级联器（click 模式）原本能用，现在也不能选中了**（回归 bug）
+- **根因**：
+  - v3.6.2 用"先 hover 后 click 叶子"策略，但 `waitForCascadeColumnOrClose` 判断不准
+  - 在 click 模式下：hover 不展开 → 判定为"无下一级" → 触发 fireFullClick 当作叶子 → 但其实是非叶子节点 → click 展开下一级但代码已退出 → 选中失败
+  - 在 hover 模式下：hover 后下一级 menu 已有节点，但 fireFullClick 叶子节点时可能时机不对
+- **修复**：彻底重构为"两阶段尝试"策略，新增 `tryCascadeLevel()` 函数：
+  ```
+  阶段1: fireHover(node) + 等 250ms
+    ├─ 下一级出现节点（hover 模式下展开）→ hasNext=true，递归
+    └─ 下一级仍无节点 → 进入阶段2
+  阶段2: fireFullClick(node) + 等 350ms
+    ├─ 下一级出现节点（click 模式下展开）→ hasNext=true，递归
+    └─ 下一级仍无节点 → 确认是叶子（已被 click 选中）→ hasNext=false，关闭面板
+  ```
+  - **不再依赖 is-leaf 类、in-active-path 类等不可靠的 DOM 状态**
+  - **不再使用旧的 `waitForCascadeColumnOrClose` 长轮询**（保留函数定义但不再调用）
+  - 通过"是否出现下一级节点"这一**唯一可靠的事实**来判断叶子/非叶子
+  - fireFullClick 自带 hover 事件序列，所以即使 hover 模式下 click 叶子也能正确触发选中
+
+### 📁 修改文件
+- `autoFiller.js`
+  - 重写 `cascadeRecursive` (line 1296) — 使用 tryCascadeLevel 两阶段策略
+  - 新增 `tryCascadeLevel` (line 1346) — 两阶段尝试（hover → click）
+  - 重写 `cascadeRecursiveByPath` (line 1379) — 同步改造
+  - `waitForCascadeColumnOrClose` (line 1463) — 保留但不再调用
+- `manifest.json` — 版本号 3.6.2 → 3.6.3
+- `CHANGELOG.md` — 本条
+
+---
+
+## [3.6.2] - 2026-07-23
+
+### 🐛 修复（expandTrigger:'hover' 模式下 el-cascader 无法选中任何项）
+- **现象**：签约房间的 5 级级联选择器（项目/楼栋/单元/楼层/房间）用规则模式自动选择时，
+  所有 5 列都展开了但**没有任何一项被真正选中**（input 显示 placeholder "请选择项目/楼栋/..."）
+- **根因**：
+  - 该组件配置了 `expandTrigger: 'hover'`（不是默认的 'click'）
+  - Element Plus el-cascader 在 hover 模式下的行为：
+    - **hover 非叶子节点** → 展开下一级
+    - **click 非叶子节点** → ❌ 仅高亮（不展开！）
+    - **click 叶子节点** → ✅ 选中并关闭面板
+  - 旧代码 `fireFullClick` 直接 click 了非叶子节点 → 在 hover 模式下 click 不展开下一级 →
+    只高亮不选中 → 最终面板打开但值为空
+- **修复**：新增 `fireHover()` 函数（只派发 mouseover/mouseenter 系列事件），改造级联逻辑为两阶段操作：
+  1. **阶段1 — fireHover(node)**：hover 当前节点触发展开下一级
+  2. **阶段2 — 观察判定**：
+     - 有下一级菜单出现 → 递归到下一级继续 hover
+     - 无下一级（叶子）→ **fireFullClick(node)** 执行 click 来真正"选中"
+  - 此策略同时兼容 `expandTrigger: 'hover'` 和 `'click'` 两种模式
+
+### 📁 修改文件
+- `autoFiller.js`
+  - 新增 `fireHover(el)` (line 1220) — 只派发 hover 事件
+  - 重写 `cascadeRecursive` (line 1296) — 先 hover 展开，最后 click 选中
+  - 重写 `cascadeRecursiveByPath` (line 1339) — 同步改造
+  - `waitForCascadeColumnOrClose` (line 1428) — 保持不变（观察式判定）
+- `manifest.json` — 版本号 3.6.1 → 3.6.2
+- `CHANGELOG.md` — 本条
+
+---
+
+## [3.6.1] - 2026-07-23
+
+### 🐛 修复（5 级级联选择器只到第 3 级就停止）
+- **现象**：Element Plus 的 el-cascader（项目/楼栋/单元/楼层/房间）用规则模式自动选择时，只点中"广州律师大厦 → 1栋 → 1单元"，第 4 级"楼层"和第 5 级"房间"没有被选中，面板就提前关闭
+- **根因**：
+  1. 旧代码 `cascadeRecursive` 中有段"列数 <= level+1 强制设为叶子"的启发式判定，依赖 `panel.querySelectorAll('.el-cascader-menu')` 的列数
+  2. Element Plus 默认**预渲染所有 menu 元素**到 panel（5 级就有 5 个 menu），即使其中某些列还没数据
+  3. 当点"1单元"（level=2）时，Vue 还在 `nextTick` 中更新 DOM，menus[3]（楼层列）节点数仍为 0
+  4. 旧的"先判断 isLeaf 再决定分支"逻辑把"1单元"误判为叶子 → 提前 closeDropdown
+- **修复**：
+  1. **删除有 bug 的"列数强制叶子"启发式判定**
+  2. **改用"点击后观察"策略**：新增 `waitForCascadeColumnOrClose`，点击节点后轮询判断
+     - 面板已从 DOM 移除 / 已隐藏 → 确认为叶子
+     - 下一级 menu 出现真实节点（数量 > 0）→ 确认为"非叶子"，递归
+     - 当前节点被标记 `in-active-path` / `is-active` / `is-selected` → 确认为叶子
+     - 轮询 5s 超时 → 兜底视为叶子
+  3. **`cascadeRecursiveByPath`（AI 路径版）同步改造**，保持两条路径行为一致
+  4. **规则模式最大递归深度** 6 → 10，更宽容支持 5+ 级级联
+  5. **保留旧 `waitForCascadeColumn`** 函数（虽然现在没人调用，但留作兜底）
+
+### 📁 修改文件
+- `autoFiller.js`
+  - `cascadeRecursive` (line 1270) — 删除启发式叶子判定，改为"点击后观察"模式
+  - `cascadeRecursiveByPath` (line 1328) — 同步改造
+  - 新增 `waitForCascadeColumnOrClose` (line 1423)
+  - `doCascaderSelect` (line 1237) — 规则模式 max: 6 → 10
+- `CHANGELOG.md` — 本条
+
+---
+
+## [3.6.0] - 2026-07-23
+
+### 🎨 UI 升级（右侧侧边栏）
+- **UI 形态变更**：插件主面板从「浏览器右上角小弹窗（380×420）」改为「浏览器右侧侧边栏（Side Panel，占满全高）」
+- **交互体验提升**：
+  1. 侧边栏占满浏览器右侧整个高度，字段列表区域可滚动，能展示更多字段信息
+  2. 头部信息固定在顶部，操作卡片、字段预览、状态栏、特效说明放在可滚动区域内
+  3. 滚动条样式美化（半透明白色），更融入紫色渐变背景
+  4. 字段项、徽章、按钮在更大宽度下视觉更舒展（字号/圆角/间距统一放大）
+- **技术实现**：
+  - 使用 Chrome 114+ 原生 `side_panel` API
+  - 移除 `action.default_popup`，新增 `side_panel.default_path` 指向 `sidepanel.html`
+  - 加 `sidePanel` 权限
+  - `background.js` 添加 `chrome.action.onClicked` 兜底逻辑，主动调用 `chrome.sidePanel.open({tabId})`
+- **兼容**：
+  - `popup.html` / `popup.js` 保留在仓库中作为兜底实现（不通过 manifest 加载）
+  - 旧版本用户的 API Key 等 storage 数据完全兼容，无需重新配置
+
+### 📁 修改文件
+- `manifest.json` — 新增 `sidePanel` 权限、`side_panel.default_path`，移除 `action.default_popup`，版本 3.5.0 → 3.6.0
+- `sidepanel.html`（新增）— 适配侧边栏高度的全屏布局
+- `sidepanel.js`（新增）— 与 popup.js 一致的填充 / AI 配置逻辑
+- `background.js` — 添加 `chrome.action.onClicked` 主动打开 side panel
+- `CHANGELOG.md` — 本条
+
+---
+
 ## [2.9.1] - 2026-06-17
 
 ### 🐛 修复（iframe 内嵌页面抽屉弹窗自动关闭）

@@ -115,3 +115,11 @@ chrome.notifications.onButtonClicked.addListener(function(notifId, btnIdx) {
 chrome.notifications.onClicked.addListener(function(notifId) {
   chrome.notifications.clear(notifId);
 });
+
+// 点击扩展图标 → 主动打开 Side Panel（占满浏览器右侧高度）
+// 配 side_panel 字段后 Chrome 通常会自动处理，这里显式兜底以兼容老行为
+chrome.action.onClicked.addListener(function(tab) {
+  if (chrome.sidePanel && chrome.sidePanel.open) {
+    chrome.sidePanel.open({ tabId: tab.id }).catch(function() { /* 忽略 */ });
+  }
+});
