@@ -1,6 +1,8 @@
-// autoFiller.js - v10 AI智能版
+// autoFiller.js - v10 AI智能版 v3.8.7-DEBUG
 // 核心：串行按序填充 + 强健的下拉选择 + 同源iframe表单自动填写 + DeepSeek AI智能数据生成
 // ============================================================
+
+console.log('[AutoFiller] 加载中... v3.8.7-DEBUG', new Date().toISOString());
 
 // 填充控制器：模式 + 暂停/停止状态，被 _fillAll 主循环检查
 var _AFCtrl = {
@@ -21,6 +23,13 @@ var _drawerGuards = [];
 // ★ document 级 keydown 拦截器（不再单独存储，全部存 _drawerGuards 数组）
 // ★ window 级别的 keydown 拦截器（部分 Element Plus 版本在 window 上注册 keydown）
 var _docKeyGuard_window = null;
+
+// ★★★ 加载 banner：确认 content script 真的加载了 ★★★
+console.log('[AutoFiller] ============================================');
+console.log('[AutoFiller] v3.8.7-DEBUG 已加载!');
+console.log('[AutoFiller] window._AF 即将定义，可用方法: fill, detect, clear');
+console.log('[AutoFiller] 当前页面:', location.href);
+console.log('[AutoFiller] ============================================');
 
 window._AF = {
   fill: function(data) { return _fillAll(data); },
@@ -564,6 +573,11 @@ function _fillAll(data) {
     // 处理一个【非 select/cascader】字段（同步），返回 false 表示需要"等下一轮"
     function handleNonSelectFieldSync(f, idx){
       var lbl = (f.label||f.placeholder||'#'+(idx+1)).slice(0,35);
+      console.log('[handleNonSelectFieldSync] type="'+f.type+'" label="'+lbl+'" element.tagName='+f.element.tagName);
+      if(SELECT_TYPES.indexOf(f.type) >= 0){
+        console.log('[handleNonSelectFieldSync] ⚠️ el-select/级联被当作下拉，但应该走 handleSingleSelect');
+        return true;  // 跳过突进，留给 handleSingleSelect
+      }
       var inIframe = f.doc !== document;
       var isRadio = f.type === 'radio-group';
 
@@ -938,12 +952,30 @@ function trySelect(wrapper,trigger,attempt,cb,doc,aiWantValue){
       fireFullClick(opt);
       console.log('    OK: 点击 "'+txt+'"');
 
+      // ★ EP 2.14+ 兜底：直接通过 Vue API 设置值（最暴力）
+      try {
+        var optVm2 = opt.__vueParentComponent;
+        if(optVm2){
+          var sel2 = (optVm2.setupState && optVm2.setupState.select)
+                   || (optVm2.proxy && optVm2.proxy.select) || null;
+          if(sel2 && typeof sel2.handleOptionSelect === 'function'){
+            sel2.handleOptionSelect(optVm2.proxy || optVm2);
+            console.log('    [Vue API] handleOptionSelect 调用成功');
+          }
+        }
+      } catch(e){ console.log('    [Vue API] 异常:', e.message); }
+
       setTimeout(function(){
         var afterVal = realInput ? (realInput.value||'') : '';
-        var committed = afterVal && afterVal !== beforeVal &&
-                        afterVal !== (realInput && realInput.placeholder || '');
+        // ★ EP 2.14+：选中后值在 .el-select__placeholder 上，不在 input.value
+        var ph = wrapper.querySelector('.el-select__placeholder');
+        var phTxt = ph ? (ph.textContent||'').trim() : '';
+        console.log('    [验证] ph="'+phTxt+'" input="'+afterVal+'"');
+        var committed = (afterVal && afterVal !== beforeVal &&
+                        afterVal !== (realInput && realInput.placeholder || ''))
+                     || (phTxt && !/请选择|选择|select/i.test(phTxt));
         if(committed){
-          cb(txt);
+          cb(phTxt || afterVal || txt);
           return;
         }
         // 鼠标点击没提交，键盘兜底：ArrowDown + Enter
@@ -1113,11 +1145,13 @@ function installDrawerGuards(){
         for(var i=0; i<nodes.length; i++){
           var node = nodes[i];
           // capture 阶段拦截 click：fireFullClick 的 el.click() 冒泡时会经过 overlay → 在此拦截
+          // ★ 临时禁用：测试是否是 guard 阻止了下拉选中
           var clickGuard = function(e){
             if(_AFCtrl.running){
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              return false;
+              // ★ TEMP DISABLED: 不再拦截，让 click 正常冒泡
+              // e.stopPropagation();
+              // e.stopImmediatePropagation();
+              // return false;
             }
           };
           node.addEventListener('click', clickGuard, true);
@@ -1894,11 +1928,26 @@ function scanFields(){
         '.el-input-number,.ant-input-number,'+
         '.el-date-editor,.el-time-picker,.el-date-picker,.ant-picker,.ant-date-picker'
       );
+      // ★ DEBUG: 输出找到的 wrapper 数
+      console.log('[scanFields] wrapperFallback 找到', wrapperFallback.length, '个候选 wrapper');
       for(var wi=0; wi<wrapperFallback.length; wi++){
         var wrp = wrapperFallback[wi];
         // 排除 dropdown / panel / 内部嵌套（仅取根级触发器容器）
-        if(wrp.closest('.el-select-dropdown,.el-cascader-panel,.el-cascader-menu,.ant-select-dropdown,.ant-cascader-menus,.el-picker-panel,.el-date-picker__time-header,.ant-picker-dropdown,.el-popper')) continue;
-        if(!isVisible(wrp)) continue;
+        var excludedBy = '';
+        if(wrp.closest('.el-select-dropdown')) excludedBy = 'dropdown';
+        else if(wrp.closest('.el-cascader-panel')) excludedBy = 'cascader-panel';
+        else if(wrp.closest('.el-cascader-menu')) excludedBy = 'cascader-menu';
+        else if(wrp.closest('.ant-select-dropdown')) excludedBy = 'ant-dropdown';
+        else if(wrp.closest('.ant-cascader-menus')) excludedBy = 'ant-cascader-menus';
+        else if(wrp.closest('.el-picker-panel')) excludedBy = 'picker-panel';
+        else if(wrp.closest('.el-date-picker__time-header')) excludedBy = 'date-time-header';
+        else if(wrp.closest('.ant-picker-dropdown')) excludedBy = 'ant-picker-dropdown';
+        else if(wrp.closest('.el-popper')) excludedBy = 'el-popper';
+        if(excludedBy){
+          console.log('[scanFields] 跳过 wrapper 类名='+wrp.className.slice(0,40)+' 原因='+excludedBy);
+          continue;
+        }
+        try{ if(!isVisible(wrp)) { console.log('[scanFields] 跳过 不可见: '+wrp.className.slice(0,40)); continue; } }catch(e){}
         if(isNonForm(wrp)) continue;
         // 如果该容器内已有 input 被识别成 field，跳过（避免重复）
         var already = false;
