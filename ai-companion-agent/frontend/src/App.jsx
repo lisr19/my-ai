@@ -26,7 +26,7 @@ export default function App() {
 
   const {
     isSpeaking, isMuted,
-    speak, stopSpeaking, toggleMute,
+    speak, stopSpeaking, toggleMute, unlockAudio,
   } = useEdgeTTS();
 
   // 检查后端状态
@@ -55,6 +55,9 @@ export default function App() {
   // 发送消息
   const handleSend = useCallback(async ({ text, images: msgImages }) => {
     if (isThinking || isOcrLoading) return;
+
+    // 用户手势内解锁 audio（之后 SSE 回调里 play 不会被 autoplay 拦截）
+    if (!isMuted) unlockAudio();
 
     const hasImages = msgImages.length > 0;
     let finalText = text || '';
@@ -113,7 +116,6 @@ export default function App() {
 
     let assistantText = '';
     let assistantEmotion = 'smile';
-    let ttsSpokenLength = 0;       // 已经被 speak 覆盖的字符数（全量文字）
 
     // 添加空的 assistant 消息（用于流式填充）
     const assistantIdx = newMessages.length;
@@ -134,25 +136,13 @@ export default function App() {
           };
           return updated;
         });
-
-        // 文字出来后立刻生成语音，覆盖当前全部文字（从头开始）
-        if (!isMuted && ttsSpokenLength === 0 && assistantText.length >= 10) {
-          ttsSpokenLength = assistantText.length;
-          speak(assistantText);
-        }
       },
       onDone: () => {
         setIsThinking(false);
         if (assistantEmotion === 'smile' && !assistantText) setEmotion('smile');
 
-        // 流结束后，只播还没覆盖到的剩余部分（不会重复第一句）
-        if (!isMuted && ttsSpokenLength > 0) {
-          const remaining = assistantText.slice(ttsSpokenLength).trim();
-          if (remaining.length >= 2) {
-            ttsSpokenLength = assistantText.length;
-            speak(remaining);
-          }
-        } else if (!isMuted && ttsSpokenLength === 0 && assistantText) {
+        // 文字全部出来后才语音播放
+        if (!isMuted && assistantText) {
           speak(assistantText);
         }
         resetIdleTimer();

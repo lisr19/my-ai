@@ -100,34 +100,11 @@ app.get('/api/health', (req, res) => {
     demoMode: !process.env.DEEPSEEK_API_KEY,
     character: 'JOY',
     role: '初中英语老师',
-    voice: process.platform === 'darwin' ? 'macOS Tingting' : 'Web Speech',
+    voice: 'zh-CN-XiaoyiNeural (Edge TTS)',
   });
 });
 
-// TTS 语音合成（macOS say + afconvert）
-async function synthesizeSpeech(cleanText, cacheFile) {
-  const aiffFile = cacheFile.replace(/\.m4a$/, '.aiff');
-
-  // 1. macOS `say` 生成 AIFF
-  await new Promise((resolve, reject) => {
-    execFile('say', ['-v', 'Tingting', '-o', aiffFile, cleanText], { timeout: 30000 }, (err) => {
-      if (err) return reject(err);
-      resolve();
-    });
-  });
-
-  // 2. afconvert 转 AAC/M4A
-  await new Promise((resolve, reject) => {
-    execFile('afconvert', [aiffFile, '-d', 'aac', '-o', cacheFile], { timeout: 15000 }, (err) => {
-      if (err) return reject(err);
-      resolve();
-    });
-  });
-
-  // 清理临时 AIFF
-  try { fs.unlinkSync(aiffFile); } catch {}
-}
-
+// TTS 语音合成（Edge TTS 中文神经语音，自然语调）
 app.post('/api/tts', async (req, res) => {
   const { text } = req.body;
   if (!text || !text.trim()) {
@@ -162,21 +139,29 @@ app.post('/api/tts', async (req, res) => {
 
   // 缓存文件路径
   const cacheKey = Buffer.from(cleanText).toString('base64').replace(/[+/=]/g, '').slice(0, 60);
-  const cacheFile = path.join('/tmp', `tts_${cacheKey}.m4a`);
+  const cacheFile = path.join('/tmp', `tts_${cacheKey}.mp3`);
 
   // 命中缓存
   if (fs.existsSync(cacheFile)) {
-    res.set('Content-Type', 'audio/mp4');
+    res.set('Content-Type', 'audio/mpeg');
     return fs.createReadStream(cacheFile).pipe(res);
   }
+
+  const pyPath = process.platform === 'win32' ? 'python' : '/Users/lisongrsn/.workbuddy/binaries/python/envs/default/bin/python';
+  const ttsScript = path.join(__dirname, 'tts.py');
 
   console.log(`[TTS] Generating voice, text: "${cleanText.slice(0, 30)}..."`);
 
   try {
-    await synthesizeSpeech(cleanText, cacheFile);
+    await new Promise((resolve, reject) => {
+      execFile(pyPath, [ttsScript, cleanText, cacheFile], { timeout: 30000 }, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
 
     if (fs.existsSync(cacheFile)) {
-      res.set('Content-Type', 'audio/mp4');
+      res.set('Content-Type', 'audio/mpeg');
       res.set('Content-Length', String(fs.statSync(cacheFile).size));
       fs.createReadStream(cacheFile).pipe(res);
     } else {
