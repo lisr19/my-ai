@@ -1,0 +1,81 @@
+/* ============================================================
+   Character3D.css - 3D 角色容器样式
+   ============================================================ */
+
+.character-3d-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.character-3d-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  cursor: grab;
+}
+
+.character-3d-container canvas:active {
+  cursor: grabbing;
+}
+
+/* 思考气泡 */
+.thought-bubble-3d {
+  position: absolute;
+  top: 12%;
+  right: 15%;
+  background: white;
+  color: #5B8DEF;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  animation: think-float-3d 1.5s ease-in-out infinite;
+}
+
+.thought-bubble-3d::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 12px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+}
+
+.thought-bubble-3d::before {
+  content: '';
+  position: absolute;
+  bottom: -18px;
+  left: 6px;
+  width: 7px;
+  height: 7px;
+  background: white;
+  border-radius: 50%;
+}
+
+@keyframes think-float-3d {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* 加载提示 */
+.character-3d-container:empty::before {
+  content: '加载 3D 角色...';
+  color: #FF8C42;
+  font-size: 14px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .character-3d-container {
+    min-height: 220px;
+  }
+}

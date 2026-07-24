@@ -1,0 +1,219 @@
+/* ============================================================
+   CharacterAvatar.css - 卡通角色表情系统样式
+   通过 CSS 类名控制不同表情下各 SVG 元素的显示/隐藏和动画
+   ============================================================ */
+
+.avatar-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 280px;
+  height: 340px;
+  user-select: none;
+}
+
+/* 背景光晕 */
+.avatar-glow {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 180, 100, 0.15) 0%, transparent 70%);
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 0.9; }
+}
+
+.character-svg {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 4px 12px rgba(255, 140, 66, 0.2));
+  transition: transform 0.3s ease;
+}
+
+/* 弹跳动画 */
+.avatar-container.bounce .character-svg {
+  animation: bounce 0.4s ease;
+}
+
+@keyframes bounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.05, 0.95); }
+  50% { transform: scale(0.98, 1.02); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================================
+   默认状态：隐藏所有非默认表情元素
+   ============================================================ */
+.eyes-happy, .eyes-surprised, .eyes-sad, .eyes-excited, .eyes-shy, .eyes-idle,
+.brows-angry, .brows-thinking,
+.mouth-happy, .mouth-thinking, .mouth-surprised, .mouth-sad,
+.mouth-angry, .mouth-talking, .mouth-excited, .mouth-shy,
+.tear-left,
+.thought-bubble {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* 默认显示 */
+.eyes-default, .brows-default, .mouth-smile, .blush {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+/* ============================================================
+   眨眼动画（默认状态的眼睛）
+   ============================================================ */
+.expr-smile .eyes-default,
+.expr-happy .eyes-happy,
+.expr-shy .eyes-shy {
+  animation: blink 4s infinite;
+}
+
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94%, 98% { transform: scaleY(0.1); }
+}
+
+/* 呼吸动画 */
+.character-svg {
+  animation: breathe 3.5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* ============================================================
+   各表情样式
+   ============================================================ */
+
+/* --- 微笑（默认）--- */
+.expr-smile .mouth-smile { opacity: 1; }
+
+/* --- 开心 --- */
+.expr-happy .eyes-default { opacity: 0; }
+.expr-happy .eyes-happy { opacity: 1; }
+.expr-happy .mouth-smile { opacity: 0; }
+.expr-happy .mouth-happy { opacity: 1; }
+.expr-happy .blush-left, .expr-happy .blush-right { opacity: 0.8; }
+
+/* --- 思考 --- */
+.expr-thinking .brows-default { opacity: 0; }
+.expr-thinking .brows-thinking { opacity: 1; }
+.expr-thinking .mouth-smile { opacity: 0; }
+.expr-thinking .mouth-thinking { opacity: 1; }
+.expr-thinking .eyes-default { transform: translate(0, -2px); }
+.expr-thinking .thought-bubble { opacity: 1; }
+
+/* --- 惊讶 --- */
+.expr-surprised .eyes-default { opacity: 0; }
+.expr-surprised .eyes-surprised { opacity: 1; }
+.expr-surprised .mouth-smile { opacity: 0; }
+.expr-surprised .mouth-surprised { opacity: 1; }
+
+/* --- 难过 --- */
+.expr-sad .eyes-default { opacity: 0; }
+.expr-sad .eyes-sad { opacity: 1; }
+.expr-sad .tear-left { opacity: 0.8; animation: tear-drop 2s ease-in-out infinite; }
+.expr-sad .mouth-smile { opacity: 0; }
+.expr-sad .mouth-sad { opacity: 1; }
+
+@keyframes tear-drop {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 0.8; }
+  80% { transform: translateY(15px); opacity: 0.4; }
+  100% { transform: translateY(20px); opacity: 0; }
+}
+
+/* --- 生气 --- */
+.expr-angry .brows-default { opacity: 0; }
+.expr-angry .brows-angry { opacity: 1; }
+.expr-angry .mouth-smile { opacity: 0; }
+.expr-angry .mouth-angry { opacity: 1; }
+.expr-angry .blush-left, .expr-angry .blush-right { fill: '#FF6B6B'; opacity: 0.5; }
+
+/* --- 说话 --- */
+.expr-talking .mouth-smile { opacity: 0; }
+.expr-talking .mouth-talking { opacity: 1; }
+.expr-talking .mouth-talking ellipse {
+  animation: talk-mouth 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes talk-mouth {
+  0% { ry: 3; transform: scaleX(1); }
+  100% { ry: 8; transform: scaleX(0.9); }
+}
+
+/* --- 待机 --- */
+.expr-idle .eyes-default { opacity: 0; }
+.expr-idle .eyes-idle { opacity: 1; }
+.expr-idle .mouth-smile { opacity: 0.3; }
+.expr-idle .character-svg { animation: breathe 4s ease-in-out infinite; }
+
+/* --- 兴奋 --- */
+.expr-excited .eyes-default { opacity: 0; }
+.expr-excited .eyes-excited { opacity: 1; }
+.expr-excited .eyes-excited g { animation: star-spin 2s linear infinite; }
+.expr-excited .mouth-smile { opacity: 0; }
+.expr-excited .mouth-excited { opacity: 1; }
+.expr-excited .blush-left, .expr-excited .blush-right { opacity: 0.9; }
+
+@keyframes star-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- 害羞 --- */
+.expr-shy .eyes-default { opacity: 0; }
+.expr-shy .eyes-shy { opacity: 1; }
+.expr-shy .mouth-smile { opacity: 0; }
+.expr-shy .mouth-shy { opacity: 1; }
+.expr-shy .blush-left, .expr-shy .blush-right { opacity: 1; transform: scale(1.3); }
+.expr-shy .blush { animation: blush-pulse 1.5s ease-in-out infinite; }
+
+@keyframes blush-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* ============================================================
+   思考气泡
+   ============================================================ */
+.thought-bubble {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: white;
+  color: #5B8DEF;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 2;
+  animation: think-float 1.5s ease-in-out infinite;
+}
+
+@keyframes think-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 768px) {
+  .avatar-container {
+    width: 200px;
+    height: 250px;
+  }
+}
