@@ -254,10 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (iframeCount > 0) {
               msg += `\n📦 包含 ${details.filter(d=>d.iframe).length} 个iframe内嵌字段`;
             }
-            
-            msg += `\n━━━━━━━━━━━━━━━━━━━\n`;
-            msg += `\n💡 每个字段按从上到下顺序逐一处理`;
-            
+
             showStatus(msg, 'success');
             
             if (details.length > 0) {

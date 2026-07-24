@@ -163,87 +163,192 @@ function callDeepSeekAI(fields) {
 
     // ========== 用 System Prompt + User Prompt 的两阶段推理 ==========
     var systemPrompt = [
-      '你是一个专业的表单数据填充助手。你需要按照以下步骤完成填充任务：',
+      '你是一个专业的智能表单数据填充助手，精通设备管理、合同管理、应急管理、物业管理、客户管理、采购管理、工程项目、人力资源等各行业的表单填写。',
+      '你的使命是：根据表单的业务场景，生成完全符合现实逻辑、行业规范且每次都不重复的真实数据。',
       '',
-      '【第1步：全局理解】',
-      '仔细阅读整个表单的所有字段，判断这个表单是用来做什么的。',
-      '例如：合同管理表单、客户信息表单、采购订单表单、员工入职表单等。',
-      '理解表单的业务场景后，你才能生成符合业务逻辑的真实数据。',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '【角色身份与基本原则】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '你是一个在以下领域有 10 年从业经验的数据专员：',
+      '  • 设备/资产管理 — 设备编号、规格型号、保养周期、巡检记录',
+      '  • 合同/法务管理 — 合同编号、金额、日期链、甲乙双方信息',
+      '  • 应急/安全管理 — 预案编号、风险等级、演练日期、责任人',
+      '  • 物业/园区管理 — 楼栋房号、面积区间、租金、物业费',
+      '  • 客户/供应商管理 — 企业名称、统一信用代码、联系人、地址',
+      '  • 采购/供应链 — 物料编码、数量、单价、供应商、交付日期',
+      '  • 工程项目管理 — 项目编号、施工周期、监理单位、验收日期',
+      '  • 人力资源 — 姓名、身份证号、学历、入职日期、薪资区间',
       '',
+      '核心原则：',
+      '  1. 数据必须真实可信 —— 不能出现明显荒谬的值（如"张三"电话=12345678901）',
+      '  2. 行业规范必须遵守 —— 不同行业有不同的编号规则和命名习惯',
+      '  3. 数据不能重复 —— 每次填充必须生成不同的值，使用随机种子变化',
+      '  4. 关联性必须自洽 —— 同一个人/公司的所有字段必须前后一致',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '【第1步：全局理解 → 识别业务场景】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '仔细阅读整个表单的所有字段和【当前已有值】，判断这个表单属于哪个行业场景：',
+      '  - 如果字段含"合同/签约/甲乙/金额/期限" → 合同管理场景',
+      '  - 如果字段含"设备/资产/型号/序列号/巡检/保养" → 设备管理场景',
+      '  - 如果字段含"应急预案/演练/风险/安全/疏散" → 应急管理场景',
+      '  - 如果字段含"楼栋/房号/面积/租金/物业费/园区" → 物业管理场景',
+      '  - 如果字段含"客户/供应商/信用代码/联系人" → 客户/供应商场景',
+      '  - 如果字段含"采购/物料/询价/报价/订单" → 采购场景',
+      '  - 如果字段含"项目/工程/施工/监理/验收" → 工程项目场景',
+      '  - 如果字段含"员工/部门/岗位/薪资/入职" → 人力资源场景',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '【第2步：提取主体画像】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '从【当前已有值】的字段中提取主体信息：',
-      '- 主体名称（公司/个人/项目名称）',
-      '- 地理区域（省/市/区）',
-      '- 行业属性（科技/金融/医疗/制造等）',
-      '- 关键关联人（法定代表人/联系人等）',
+      '  - 主体名称（公司/个人/项目名称）',
+      '  - 地理区域（省/市/区）',
+      '  - 行业属性（科技/金融/医疗/制造/物业等）',
+      '  - 关键关联人（法定代表人/联系人等）',
       '这些信息是你生成其他字段值的"基准"，所有字段必须围绕同一主体。',
       '',
-      '【第3步：建立数据关联（上下文一致性）】',
-      '以下关联规则必须严格遵守：',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '【第3步：按行业生成数据规则】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '',
+      '【▶ 通用规则 — 适用于所有行业】',
+      '',
+      '★ 身份证号码（18位，必须严格符合国标GB 11643）：',
+      '  格式：AAAAAA YYYYMMDD XXX Y',
+      '  - AAAAAA：6位地区码（根据主体所在省市）',
+      '    · 北京 → 110101(东城)/110105(朝阳)/110108(海淀)/110112(通州)/110114(昌平)/110115(大兴)',
+      '    · 上海 → 310101(黄浦)/310105(长宁)/310109(虹口)/310115(浦东)/310112(闵行)/310114(嘉定)',
+      '    · 广东广州 → 440103(荔湾)/440104(越秀)/440105(海珠)/440106(天河)/440111(白云)/440113(番禺)',
+      '    · 广东深圳 → 440303(罗湖)/440304(福田)/440305(南山)/440306(宝安)/440307(龙岗)/440308(盐田)',
+      '    · 广东其他 → 440402(珠海)/441900(东莞)/442000(中山)/440604(佛山禅城)/440605(佛山南海)',
+      '    · 浙江杭州 → 330102(上城)/330103(下城)/330106(西湖)/330108(滨江)/330109(萧山)/330110(余杭)',
+      '    · 江苏南京 → 320102(玄武)/320104(秦淮)/320105(建邺)/320106(鼓楼)/320111(浦口)/320115(江宁)',
+      '    · 江苏苏州 → 320502(姑苏)/320505(虎丘)/320506(吴中)/320507(相城)/320508(园区)/320509(吴江)',
+      '    · 四川成都 → 510104(锦江)/510105(青羊)/510106(金牛)/510107(武侯)/510108(成华)/510112(龙泉驿)',
+      '    · 湖北武汉 → 420102(江岸)/420103(江汉)/420106(武昌)/420111(洪山)/420114(蔡甸)/420115(江夏)',
+      '    · 其他省会 → 按对应行政区划代码',
+      '  - YYYYMMDD：出生日期（1970-2005之间随机，避免未成年）',
+      '  - XXX：3位顺序码，奇数=男，偶数=女',
+      '  - Y：校验位，根据前17位按公式计算（0-9或X）',
+      '  ⚠️ 必须生成有效校验位！计算公式：',
+      '    加权因子 W=[7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2]',
+      '    校验码表 C=["1","0","X","9","8","7","6","5","4","3","2"]',
+      '    S = Σ(每位×对应因子) mod 11，Y = C[S]',
+      '  ⚠️ 示例（不要照抄，每次随机不同）：',
+      '    北京：110105198506153279，上海：31011519920108452X',
+      '    广州：440106197812099316，深圳：440305199011223741',
+      '',
+      '★ 手机号码（11位，必须符合真实号段）：',
+      '  有效前3位号段：',
+      '    中国移动：134-139, 147, 148, 150-152, 157-159, 165, 172, 178, 182-184, 187, 188, 195, 197, 198',
+      '    中国联通：130-132, 145, 146, 155, 156, 166, 167, 171, 175, 176, 185, 186, 196',
+      '    中国电信：133, 149, 153, 162, 173, 174, 177, 180, 181, 189, 190, 191, 193, 199',
+      '  后8位：完全随机数字（10000000-99999999）',
+      '  ⚠️ 每次必须生成不同的号码！',
+      '',
+      '★ 统一社会信用代码（18位）：',
+      '  格式：91 + 登记机关代码(6位) + 组织机构代码(9位) + 校验位(1位)',
+      '  示例（仅供参考，每次不同）：91440101MA5CJ8XQ3W',
+      '  每次生成时随机变化后9位字母数字组合',
+      '',
+      '★ 银行账号：',
+      '  - 借记卡：622202/622848/621700/621226/622262 开头 + 13位随机数字',
+      '  - 对公账户：102/201/301/401 + 地区码4位 + 账号12位',
+      '  ⚠️ 每次随机不同',
+      '',
+      '★ 邮箱格式：',
+      '  - 姓名拼音小写@公司域名.com',
+      '  - 如"张三"在"广东科技有限公司" → zhangsan@guangdongtech.com',
+      '  ⚠️ 每次随机不同',
+      '',
+      '★ 车牌号（如有车辆管理字段）：',
+      '  - 格式：省份简称(1汉字) + 城市字母 + 5位数字字母',
+      '  - 如"粤A·12345"、"京A·8B6C2"、"沪B·D9521"',
+      '',
+      '【▶ 设备管理场景】',
+      '  - 设备编号：如"EQ-2026-XXXXX"或"SB-DQ-XXXX"（按资产分类编码）',
+      '  - 规格型号：真实工业格式如"380V/50Hz/500W"、"DN50/PN16"',
+      '  - 巡检/保养周期：如"每月"、"每季度"、"每半年"',
+      '  - 设备状态：正常/运行中/待检修/停用/报废',
+      '  - 购置日期 < 投产日期 < 当前日期',
+      '',
+      '【▶ 合同管理场景】',
+      '  - 合同编号：HT/CON/AG-YYYY-8位随机数字（禁止使用"BYGJ-"等占位符）',
+      '  - 金额区间：采购合同 5-500万，服务合同 1-50万，租赁合同 0.5-30万/年',
+      '  - 日期链：签约日 < 生效日 < 截止日，时间间隔合理（30天-3年）',
+      '  - 甲乙方：真实企业名称（不要"测试公司"），配合信用代码',
+      '',
+      '【▶ 应急管理场景】',
+      '  - 预案编号：如"YJYA-2026-XXXX"',
+      '  - 风险等级：重大风险/较大风险/一般风险/低风险',
+      '  - 演练类型：消防演练/地震疏散/化学品泄漏/防洪防汛',
+      '  - 演练日期：过去的合理日期（30天内）',
+      '',
+      '【▶ 物业管理场景】',
+      '  - 楼栋编号：如"A栋/B栋/1号楼/2号楼"',
+      '  - 房号格式：如"101/201/301"或"A-101/B-202"',
+      '  - 面积区间：住宅 30-200㎡，办公 50-500㎡，商铺 20-300㎡',
+      '  - 租金：住宅 20-80元/㎡/月，办公 50-200元/㎡/月，商铺 80-500元/㎡/月',
+      '  - 物业费：住宅 2-5元/㎡/月，办公 5-20元/㎡/月',
+      '',
+      '【▶ 客户/供应商管理场景】',
+      '  - 企业全称：真实感名称（地域+行业+组织形式）',
+      '    · 如"广州XX科技有限公司"、"上海XX贸易有限公司"、"深圳XX实业有限公司"',
+      '    · ⚠️ 每次随机不同公司名',
+      '  - 联系人姓名：常见姓名池随机（张伟/李娜/王芳/刘洋/陈静/杨帆/赵敏/黄磊/周洁/吴强…）',
+      '  - 客户等级：VIP/重要/普通/潜在',
+      '',
+      '【▶ 采购管理场景】',
+      '  - 物料编码：如"MAT-2026-XXXXXX"',
+      '  - 数量单位：合理搭配（件/台/套/箱/吨/米）',
+      '  - 单价范围：根据物料类型（电子元件 0.1-500元，原材料 10-5000元/吨，设备 1000-500000元/台）',
+      '',
+      '【▶ 人力资源场景】',
+      '  - 姓名：使用常见姓名，姓+名（2-3字）',
+      '  - 性别：男/女（随机但需与身份证号顺序码一致：奇数男偶数女）',
+      '  - 学历：博士/硕士/本科/大专（按岗位匹配，技术岗=本科以上，普工=大专以下）',
+      '  - 部门：技术部/市场部/财务部/人事部/运营部/研发部/行政部',
+      '  - 岗位：与部门匹配（如技术部→软件工程师/测试工程师）',
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '【第4步：数据关联规则】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '',
       '▶ 地理一致性（最高优先级）：',
-      '  - 从主体名称提取城市关键字，所有地址必须属于同一城市',
-      '  - 如主体名含"广东/广州/深圳/珠海" → 所有地址必须在广东省内',
-      '  - 如主体名含"上海" → 所有地址必须在上海市内',
-      '  - 如主体名含"北京" → 所有地址必须在北京市内',
-      '  - 禁止出现"广东公司+北京地址"这种矛盾！',
-      '  - 级联器(cascader)层级不固定，根据字段名判断：',
-      '    · 地址类通常是 3 级（省/市/区）',
-      '    · 房间/楼宇可能是 2-6 级（如"广州律师大厦/1栋/2单元/9层/981A"）',
-      '    · 用"/"分隔每一级',
-      '  - 详细地址(textarea)返回格式："省+市+区+街道+门牌号"',
+      '  - 从主体名称提取城市，所有地址必须在同一城市/省份',
+      '  - 禁止"广州公司+北京地址"这种矛盾',
+      '  - 级联器(cascader)返回格式：用"/"分隔，地址类3级"省/市/区"',
+      '  - 详细地址(textarea)："XX省XX市XX区XX街道XX号"',
       '',
-      '▶ 日期逻辑链（关键，必须严格执行）：',
-      '  - 签约日期 < 合同开始日期 < 合同结束日期（时间顺序不能乱）',
-      '  - 出生日期 < 入职日期 < 当前日期',
-      '  - 申请日期 ≈ 创建日期 ≈ 今天前后',
-      '  - 截止日期/到期日期 = 未来时间',
-      '  - ⚠️ 强制要求：每个日期字段必须生成不同的日期，不能全部同一天！',
-      '  - 假设今天是 2026-07-21，请按以下规则生成不同日期：',
-      '    · 签约日期 → 2026-04-21 到 2026-06-21 之间随机一天',
-      '    · 合同开始日期 → 签约日期之后 1-30 天（如 2026-05-10）',
-      '    · 合同结束日期 → 合同开始日期 + 1-3 年（如 2028-09-15）',
-      '    · 生日 → 1970-2000 年之间随机一天',
-      '    · 入职日期 → 2016-2025 年之间随机一天',
-      '    · 申请/创建/提交日期 → 2026-07-01 到 2026-07-21 之间随机一天',
-      '    · 截止/到期/结束 → 2026-08 到 2027-12 之间随机一天',
+      '▶ 日期逻辑链：',
+      '  - 出生日 < 入职日 < 当前日期',
+      '  - 签约日 < 生效日 < 截止日',
+      '  - 申请日 ≈ 创建日 ≈ 今天前后30天',
+      '  - 截止日/到期日 = 未来时间（1-3年后）',
+      '  - ⚠️ 每个日期字段必须不同！不能全部同一天！',
       '',
-      '▶ 编号/号码一致性：',
-      '  - 合同编号（必须！不要用占位符如 "BYGJ-" 这种）：',
-      '    · 允许的前缀：HT、CON、AG、HTN、CT',
-      '    · 格式："PREFIX-YYYY-XXXXXXXX"（8位随机数字）',
-      '    · 示例（仅供参考风格，不要照抄）："HT-2026-45128903"、"CON-2026-00781234"',
-      '    · 多个合同编号字段时，必须使用不同的随机数字',
-      '  - 证件号：根据主体地理位置生成对应地区编码',
-      '    · 广东 → 44 开头（4401 广州, 4403 深圳, 4404 珠海, 4420 白云区）',
-      '    · 上海 → 31 开头（3101 市区, 3102 浦东, 3103 闵行）',
-      '    · 北京 → 11 开头（1101 市区, 1102 朝阳, 1103 海淀）',
-      '    · 浙江 → 33 开头（3301 杭州, 3302 宁波, 3303 温州）',
-      '    · 江苏 → 32 开头（3201 南京, 3202 苏州, 3203 无锡）',
-      '  - 银行账号：真实格式如"6222021234567890123"',
-      '  - 电话号码：与主体联系人匹配',
+      '▶ 号码一致性：',
+      '  - 同一人的姓名、身份证、手机号、邮箱必须匹配',
+      '  - 同一公司的名称、信用代码、银行账号必须匹配',
       '',
-      '▶ 业务数据合理性：',
-      '  - 金额要合理：采购合同5-500万，服务合同1-50万，小商品0.01-5万',
-      '  - 数量要合理：批发10-10000，零售1-100，服务天数30-365',
-      '  - 面积要合理：办公室50-500㎡，厂房500-5000㎡，住宅30-200㎡',
-      '  - 邮箱格式：联系人姓名拼音@公司域名.com',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '【第5步：字段处理规则】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '  - 已有值的字段 → 返回""（保留原值）',
+      '  - 禁用的字段 → 返回""',
+      '  - 下拉框(el-select)：根据业务场景返回合理选项名（不是"请选择"），如不确定返回""让系统随机选',
+      '  - 单选组(radio-group) → 返回""（系统自动选第一项）',
+      '  - 级联器(el-cascader) → 用"/"分隔返回路径',
+      '  - 其他字段 → 返回符合以上所有规则的真实数据',
       '',
-      '【第4步：字段处理规则】',
-      '- 已有值的字段 → 返回""（保留原值）',
-      '- 禁用的字段 → 返回""',
-      '- 下拉框(el-select)：根据业务场景返回一个最合理的选项名（不是"请选择"），如"重点程度"→"重要"、"区域"→"华南区"等。如果不确定就返回""（系统会随机选）',
-      '- 单选组(radio-group) → 返回""（系统自动选第一项）',
-      '- 级联器(el-cascader) → 根据字段名判断层级返回路径，用"/"分隔',
-      '  · 字段名含"地址/地区/省市区" → 3级"省/市/区"',
-      '  · 字段名含"房间/楼宇/楼层/单元/栋" → 2-6级（按实际情况）',
-      '  · 字段名含"分类/类别/类型" → 2-4级',
-      '- 其他字段 → 返回符合以上所有规则的真实数据',
-      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '【输出格式】',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '只返回JSON对象，不要任何解释文字：',
       '{ "字段标签1": "值1", "字段标签2": "值2", ... }',
       'key必须与用户输入中的字段标签完全一致。',
+      '⚠️ 每次调用都要生成不同的数据（使用不同随机种子）！',
     ].join('\n');
 
     var userPrompt = [
@@ -255,7 +360,8 @@ function callDeepSeekAI(fields) {
       '字段列表:',
       fieldDescriptions,
       '',
-      '请先理解这个表单的业务场景，再按照系统指令中的规则，为每个字段生成真实、合理、符合逻辑的数据。',
+      '请先判断表单所属行业场景，再按照系统指令中该行业的规则，为每个字段生成真实、合理、符合逻辑的数据。',
+      '⚠️ 重要提醒：每次生成的身份证号、手机号、合同编号、企业名称等都必须不同，不能与上次相同！',
       '只返回JSON。',
     ].join('\n');
 
@@ -634,7 +740,7 @@ function _fillAll(data) {
         }
         // ★ 回退到规则生成
         if(!dateVal){
-          dateVal = genDateValue(f.label || f.placeholder);
+          dateVal = genDateValue(f.label || f.placeholder, f.element);
         }
         try{
           // 方式①：Vue emit 更新模型（主要方式）
@@ -952,16 +1058,43 @@ function trySelect(wrapper,trigger,attempt,cb,doc,aiWantValue){
       fireFullClick(opt);
       console.log('    OK: 点击 "'+txt+'"');
 
-      // ★ EP 2.14+ 兜底：直接通过 Vue API 设置值（最暴力）
+      // ★ EP 2.14+ + Element UI 1.x/2.x 兜底：直接通过 Vue API 设置值并关闭面板
       try {
+        // Vue 3 路径
         var optVm2 = opt.__vueParentComponent;
         if(optVm2){
           var sel2 = (optVm2.setupState && optVm2.setupState.select)
                    || (optVm2.proxy && optVm2.proxy.select) || null;
           if(sel2 && typeof sel2.handleOptionSelect === 'function'){
             sel2.handleOptionSelect(optVm2.proxy || optVm2);
-            console.log('    [Vue API] handleOptionSelect 调用成功');
+            console.log('    [Vue3 API] handleOptionSelect 调用成功');
+            // ★ 选中后立即通过 Vue API 关闭面板（避免 Escape 被 guard 拦截）
+            if(typeof sel2.handleClose === 'function'){
+              try{ sel2.handleClose(); console.log('    [Vue3 API] handleClose 关闭面板'); }catch(e){}
+            }else if(sel2.visible !== undefined){
+              try{ sel2.visible = false; console.log('    [Vue3 API] visible=false'); }catch(e){}
+            }
           }
+        }
+        // Vue 2 路径（旧版 Element UI）: opt.__vue__ 是 Option 实例
+        if(opt.__vue__){
+          try{
+            var optVue2 = opt.__vue__;
+            // 旧版 Element UI 的 el-select Option 有 select 引用指向父组件
+            if(optVue2.select && typeof optVue2.select.handleOptionSelect === 'function'){
+              optVue2.select.handleOptionSelect(optVue2);
+              console.log('    [Vue2 API] handleOptionSelect 调用成功');
+              // 关闭面板
+              if(typeof optVue2.select.visible === 'boolean'){
+                optVue2.select.visible = false;
+                console.log('    [Vue2 API] visible=false');
+              }
+            }else if(optVue2.$parent && optVue2.$parent.$options && optVue2.$parent.$options.name === 'ElSelect'){
+              // 兜底：直接修改 $parent.visible
+              optVue2.$parent.visible = false;
+              console.log('    [Vue2 API] $parent.visible=false');
+            }
+          }catch(e){ console.log('    [Vue2 API] 异常:', e.message); }
         }
       } catch(e){ console.log('    [Vue API] 异常:', e.message); }
 
@@ -1064,19 +1197,117 @@ function vis(e){try{var s=getComputedStyle(e);return s.display!=='none'&&s.visib
 
 function closeDropdown(doc){
   doc = doc || document;
-  // 仅用 Escape 键关闭下拉面板
-  // ★ 只对 activeElement 派发（避免冒泡到全局关闭其他组件）
-  var target = doc.activeElement || doc.body;
-  var ev = new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true});
-  target.dispatchEvent(ev);
+  // ★ v3.8.8: 优先通过 Vue 实例关闭面板（避免 Escape 被 drawer-guard 拦截）
+  // ★ v3.8.11: 同时兼容 Vue 2 (旧版 Element UI) 和 Vue 3 (Element Plus)
+  var allDocs = getAllDocuments();
+  var closedViaVue = false;
+  
+  // 1) 尝试关闭 el-select-dropdown（Vue 3 + Vue 2 双兼容）
+  for(var d=0; d<allDocs.length; d++){
+    var drops = allDocs[d].querySelectorAll('.el-select-dropdown:not([style*="display: none"]),.el-popper.el-select__popper[aria-hidden="false"]');
+    for(var i=0; i<drops.length; i++){
+      try{
+        var dp = drops[i];
+        // ★ Vue 2 旧版 Element UI: 整个 dropdown 本身是 Vue 实例（__vue__）
+        if(dp.__vue__){
+          try{
+            // 旧版 Element UI 的 el-select 实例通过 dropdown 上的引用访问
+            var sel2 = dp.__vue__;
+            if(sel2 && typeof sel2.visible === 'boolean'){
+              sel2.visible = false;
+              closedViaVue = true;
+              console.log('    [close] el-select (Vue2) visible=false');
+            }else if(sel2 && sel2.$parent && typeof sel2.$parent.visible === 'boolean'){
+              sel2.$parent.visible = false;
+              closedViaVue = true;
+              console.log('    [close] el-select (Vue2 parent) visible=false');
+            }
+          }catch(e){}
+        }
+        // ★ Vue 3 Element Plus: 通过 dropdown 内 item 找到 select 实例
+        var item = dp.querySelector('.el-select-dropdown__item');
+        if(item){
+          // Vue 3 路径
+          var itemVm = item.__vueParentComponent;
+          if(itemVm){
+            var sel = (itemVm.setupState && itemVm.setupState.select)
+                    || (itemVm.proxy && itemVm.proxy.select) || null;
+            if(sel && typeof sel.handleClose === 'function'){
+              sel.handleClose();
+              closedViaVue = true;
+              console.log('    [close] el-select (Vue3) handleClose');
+            }else if(sel && typeof sel.visible === 'boolean'){
+              sel.visible = false;
+              closedViaVue = true;
+              console.log('    [close] el-select (Vue3) visible=false');
+            }
+          }
+          // Vue 2 路径（el-select 1.x/2.x）: item 自身可能是 Vue 实例
+          if(!closedViaVue && item.__vue__){
+            try{
+              var sel3 = item.__vue__;
+              // 旧版 Element UI Option 实例：dispatch('select') 给父 select
+              // 父 select 通过 $parent 访问
+              if(sel3 && sel3.$parent && sel3.$parent.$options && sel3.$parent.$options.name === 'ElSelect'){
+                sel3.$parent.visible = false;
+                closedViaVue = true;
+                console.log('    [close] el-select (Vue2 $parent) visible=false');
+              }else if(sel3 && sel3.select && typeof sel3.select.visible === 'boolean'){
+                sel3.select.visible = false;
+                closedViaVue = true;
+                console.log('    [close] el-select (Vue2 select) visible=false');
+              }
+            }catch(e){}
+          }
+        }
+      }catch(e){}
+    }
+  }
+
+  // 2) 尝试关闭 el-cascader-panel（Vue 3 + Vue 2）
+  for(var d2=0; d2<allDocs.length; d2++){
+    var panels = allDocs[d2].querySelectorAll('.el-cascader-panel:not([style*="display: none"])');
+    for(var j=0; j<panels.length; j++){
+      try{
+        var pv = panels[j];
+        // Vue 3
+        var pv3 = pv.__vueParentComponent;
+        if(pv3 && pv3.setupState && pv3.setupState.visible !== undefined){
+          pv3.setupState.visible = false;
+          closedViaVue = true;
+          console.log('    [close] el-cascader (Vue3) visible=false');
+        }
+        // Vue 2
+        if(!closedViaVue && pv.__vue__){
+          var pv2 = pv.__vue__;
+          if(pv2 && typeof pv2.visible === 'boolean'){
+            pv2.visible = false;
+            closedViaVue = true;
+            console.log('    [close] el-cascader (Vue2) visible=false');
+          }else if(pv2 && pv2.$parent && typeof pv2.$parent.visible === 'boolean'){
+            pv2.$parent.visible = false;
+            closedViaVue = true;
+            console.log('    [close] el-cascader (Vue2 $parent) visible=false');
+          }
+        }
+      }catch(e){}
+    }
+  }
+
+  // 3) 兜底：派发 Escape（可能被 guard 拦截，但无害）
+  if(!closedViaVue){
+    var target = doc.activeElement || doc.body;
+    var ev = new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true});
+    target.dispatchEvent(ev);
+  }
 }
 
 /** 关闭所有文档中已打开的下拉面板 */
 function closeAllDropdowns(){
+  // ★ v3.8.8: 逐个文档调用 closeDropdown（已改为 Vue API 优先）
   var allDocs = getAllDocuments();
   for(var d=0; d<allDocs.length; d++){
-    // 用 Escape 关闭（Element Plus 监听 Escape 自动关闭面板并清理状态）
-    allDocs[d].dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    closeDropdown(allDocs[d]);
   }
   // ★ 不要手动设 display:none，会锁死 Element Plus 内部状态导致下拉永远打不开
 }
@@ -1837,6 +2068,7 @@ function doRadioFirst(group, lbl){
  * 通过 Vue 组件 emit('update:modelValue', val) 直接设置日期选择器的值。
  * 比面板交互更可靠：不需要碰 readonly input，不需要找面板样式类名，
  * 兼容所有 Element Plus / Ant Design 版本。
+ * ★ v3.8.10: 同时触发 onChange 事件以保证表单验证、change 监听能感知到
  */
 function syncDatePickerModel(el, val){
   var wrapper = el.closest('.el-date-editor,.el-date-picker,.el-time-picker,.ant-picker,[class*="el-date-editor"],[class*="ant-picker"]') || el;
@@ -1847,7 +2079,37 @@ function syncDatePickerModel(el, val){
     if(comp.props && ('modelValue' in comp.props || 'model-value' in comp.props)){
       try{
         if(typeof comp.emit === 'function'){
+          // ★ daterange 必须是数组 [start, end]
+          // ★ Element Plus 内部会立即响应数组 emit 到第一个 input
+          //   第二个 input（结束时间）需要额外同步：直接修改 DOM + 派发 input 事件
           comp.emit('update:modelValue', val);
+          
+          // ★ 同时触发 onChange 事件（v-model 形式）
+          if(typeof comp.emit === 'function'){
+            try{ comp.emit('change', val); }catch(e){}
+          }
+          
+          // ★ 同步两个 input 的 DOM 显示（Element Plus daterange 显示在两个 input 中）
+          if(Array.isArray(val) && val.length === 2){
+            try{
+              var inputs = wrapper.querySelectorAll('input');
+              // 第一个 input 写开始时间，第二个写结束时间
+              if(inputs.length >= 2){
+                var startInput = inputs[0];
+                var endInput = inputs[inputs.length - 1];
+                setInputValue(startInput, val[0]);
+                setInputValue(endInput, val[1]);
+                console.log('    [date-range] 同步 input DOM: '+val[0]+' ~ '+val[1]);
+              }
+            }catch(e){}
+          }else if(typeof val === 'string'){
+            // 单日期：同步单个 input
+            try{
+              var inp = wrapper.querySelector('input');
+              if(inp) setInputValue(inp, val);
+            }catch(e){}
+          }
+          
           return true;
         }
       }catch(e){}
@@ -1865,24 +2127,41 @@ function syncDatePickerModel(el, val){
 function scanFields(){
   var fields=[],seen={};
   var docs = getAllDocuments();
-  
+
   for(var di=0;di<docs.length;di++){
     var currentDoc = docs[di];
     var isIframe = currentDoc !== document;
-    
+
     try {
       var all=currentDoc.querySelectorAll(
         'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select'
       );
+      console.log('[scanFields] doc#'+di+' 找到 '+all.length+' 个 input/textarea/select');
       
       for(var i=0;i<all.length;i++){
         var el=all[i];
-        if(!isVisible(el)) continue;
+        if(!isVisible(el)) {
+          try{
+            var visInfo = '';
+            try{ visInfo = 'display='+getComputedStyle(el).display+' vis='+getComputedStyle(el).visibility+' op='+getComputedStyle(el).opacity+' w='+el.offsetWidth+' h='+el.offsetHeight; }catch(e){}
+            var lbl0 = getLabel(el);
+            console.log('[scanFields] 跳过 不可见: type='+(el.type||el.tagName)+' label="'+lbl0+'" placeholder="'+el.placeholder+'" '+visInfo);
+          }catch(e){}
+          continue;
+        }
         // 注意：
         // - readOnly 不过滤：el-select / el-cascader 非 filterable 模式下 input 是 readonly，它就是触发器
         // - disabled 也不过滤：有联动关系的字段，前面字段填完后会从 disabled 解除（如「审核流程」依赖「合同类型」）
         //   在多轮填充中，本轮 disabled 的会跳过本轮，下一轮自动重试
-        if(isNonForm(el)) continue;
+        if(isNonForm(el)) {
+          // ★ DEBUG: 记录被过滤的字段和原因
+          try{
+            var lbl = getLabel(el);
+            var t = getType(el);
+            console.log('[scanFields] 跳过 非表单: type='+t+' label="'+lbl+'" placeholder="'+el.placeholder+'" path='+getPath(el));
+          }catch(e){}
+          continue;
+        }
 
         var key='doc'+di+'_'+el.tagName+'_'+(el.name||el.id||el.placeholder||i)+'_'+getPath(el);
         if(seen[key]) continue;
@@ -2044,23 +2323,59 @@ function isVisible(el){
 }
 
 function isNonForm(el){
+  // ★ v3.9.1 重写：更精确的"非表单"判定
+  // 目标：
+  //   1) 顶部导航/页脚/搜索栏/筛选条永远排除
+  //   2) 弹窗存在时：只填弹窗内的字段（避免污染外部列表/筛选区）
+  //   3) 兼容 Element Plus / Element UI 1.x/2.x / Ant Design
+  //   4) 兼容多种弹窗结构（Teleport 到 body 下也算）
+
+  // (1) 顶部导航/页脚/搜索栏：直接排除（即使在弹窗内）
   var sa=el.closest('header,nav,footer,[role="search"],.search-bar,.navbar,.filter-bar,.query-bar,.toolbar');
-  if(sa)return true;
-  
+  if(sa) {
+    // ★ 例外：弹窗内的 header（如 dialog__header）应该被识别
+    if(el.closest('.el-dialog,.el-dialog__wrapper,.el-drawer,.el-drawer__wrapper,.ant-modal,.ant-modal-wrap,[role="dialog"]')) {
+      // 弹窗内的 header 不算非表单
+    } else {
+      return true;
+    }
+  }
+
+  // (2) class 名含 search/filter/query：判定为筛选区（除非在弹窗内）
   var pc=el.closest('[class]');
   if(pc){
     var cn=String(pc.className||'');
-    if(/search|query|filter|global|topbar|navbar|header-bar/.test(cn)&&!pc.closest('.el-dialog,.el-drawer,.ant-modal,[role="dialog"],.ant-drawer'))
+    if(/search|query|filter|global|topbar|navbar|header-bar/.test(cn) && !pc.closest('.el-dialog,.el-drawer,.ant-modal,[role="dialog"],.ant-drawer')){
       return true;
+    }
   }
 
-  // 检查弹窗：需要在元素所属的document中查找
+  // (3) 弹窗存在判定
   var ownerDoc = getOwnerDoc(el);
-  var hasDlg=!!ownerDoc.querySelector(
-    '.el-dialog__wrapper:not([style*="display: none"]),.el-dialog,.el-drawer,.ant-modal-wrap:not(.ant-modal-wrap-hidden),[role="dialog"]:not([aria-hidden="true"])'
+  var hasDlg = !!ownerDoc.querySelector(
+    '.el-dialog__wrapper:not([style*="display: none"]),' +
+    '.el-dialog,.el-drawer,' +
+    '.ant-modal-wrap:not(.ant-modal-wrap-hidden),' +
+    '.ant-drawer-wrap,' +
+    '[role="dialog"]:not([aria-hidden="true"])'
   );
-  if(hasDlg&&!el.closest('.el-dialog,.el-dialog__wrapper,.el-drawer,.el-drawer__wrapper,.ant-modal,.ant-modal-wrap,.ant-modal-content,[role="dialog"]'))
-    return true;
+
+  if(hasDlg){
+    // 元素是否在弹窗容器内
+    var inDlg = el.closest(
+      '.el-dialog,.el-dialog__wrapper,.el-dialog__body,' +
+      '.el-drawer,.el-drawer__wrapper,.el-drawer__body,' +
+      '.ant-modal,.ant-modal-wrap,.ant-modal-content,.ant-modal-body,' +
+      '.ant-drawer,.ant-drawer-wrap,.ant-drawer-content,.ant-drawer-body,' +
+      '[role="dialog"]'
+    );
+    if(!inDlg) {
+      // 兜底：检查 .el-overlay 容器（Element Plus 弹窗常用 wrapper）
+      if(!el.closest('.el-overlay,.el-overlay-dialog')) {
+        return true; // 弹窗外，过滤掉
+      }
+    }
+  }
   return false;
 }
 
@@ -2204,9 +2519,39 @@ function setInputValue(el,val){
 // ============================================================
 
 // ★ 日期值生成：根据 label 智能返回年份/年月/完整日期
-function genDateValue(label){
+function genDateValue(label, el){
   var L = (label||'').toLowerCase();
   var now = new Date();
+  var start = now.toISOString().slice(0,10);
+  // ★ v3.8.10: 检测是否是日期范围（daterange/datetimerange/timerange/monthrange/yearrange）
+  if(el){
+    try{
+      var wrap = el.closest && el.closest('.el-date-editor,.el-range-editor,.ant-range-picker');
+      if(wrap){
+        // 容器有 .el-range-editor 或有两个 input 且有开始/结束 placeholder
+        var isRange = wrap.classList.contains('el-range-editor') ||
+                      wrap.classList.contains('el-range-editor--default') ||
+                      !!wrap.querySelector('.el-range-input') ||
+                      (wrap.querySelectorAll('input').length >= 2 &&
+                       (function(){
+                         var ins = wrap.querySelectorAll('input');
+                         for(var i=0;i<ins.length;i++){
+                           var p = (ins[i].placeholder||'');
+                           if(/开始|起始|起|start|from/.test(p)) return true;
+                         }
+                         return false;
+                       })()) ||
+                      (wrap.className||'').indexOf('range') >= 0;
+        if(isRange){
+          // 范围类型：返回 [开始日期, 结束日期] 数组
+          var end = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+          var endStr = end.toISOString().slice(0,10);
+          console.log('    [date] 检测到范围组件 → ['+start+', '+endStr+']');
+          return [start, endStr];
+        }
+      }
+    }catch(e){}
+  }
   // 纯年份（年出现在末尾或带"年份"且无月日）：预计达产年份、建档年份、统计年
   if((/\u5e74$/.test(L) || /\u5e74\u4efd/.test(L)) && !/\u6708|\u65e5/.test(L)){
     return String(now.getFullYear());
@@ -2216,7 +2561,7 @@ function genDateValue(label){
     return now.toISOString().slice(0,7);
   }
   // 默认完整日期
-  return now.toISOString().slice(0,10);
+  return start;
 }
 
 function genValue(label,idx){
