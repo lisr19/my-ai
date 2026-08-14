@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Excel 积分统计工具</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+:root{--bg:#f3f5fa;--surface:#ffffff;--surface2:#f6f8fc;--border:#e2e7ef;--primary:#4f7cff;--primary-hover:#3a66f0;--success:#22c55e;--danger:#ef4444;--text:#1f2937;--text-dim:#6b7280;--gold:#f59e0b;--silver:#94a3b8;--bronze:#b45309;--shadow:0 2px 12px rgba(31,41,55,.06)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+.header{text-align:center;padding:30px 0 20px}
+.header h1{font-size:28px;font-weight:700;background:linear-gradient(135deg,#4f7cff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.header p{color:var(--text-dim);font-size:14px;margin-top:6px}
+.upload-area{border:2px dashed var(--border);border-radius:16px;padding:50px 30px;text-align:center;cursor:pointer;transition:all .3s;background:var(--surface);margin-bottom:20px;box-shadow:var(--shadow)}
+.upload-area:hover,.upload-area.dragover{border-color:var(--primary);background:#f0f5ff}
+.upload-icon{font-size:48px;margin-bottom:16px}
+.upload-area p{font-size:16px;color:var(--text-dim)}
+.upload-area .hint{font-size:13px;margin-top:8px;opacity:.6}
+#fileInput{display:none}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.9}
+.btn-secondary{background:#fff;color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--primary);background:#f8faff}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.toolbar-left{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.file-info{background:var(--surface);padding:8px 16px;border-radius:8px;font-size:13px;color:var(--text-dim);border:1px solid var(--border);box-shadow:var(--shadow)}
+.file-info span{color:var(--text);font-weight:600}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);justify-content:center;flex-wrap:wrap}
+.tab{padding:12px 24px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-dim);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.summary-cards{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.summary-section-title{font-size:18px;font-weight:700;color:var(--text);margin:8px 0 4px;display:flex;align-items:center;gap:8px}
+.summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.summary-card{background:var(--surface);border-radius:16px;padding:22px;border:1px solid var(--border);box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden}
+.summary-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(31,41,55,.12)}
+.summary-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
+.summary-card.top-group{background:linear-gradient(180deg,#fffbeb 0%,#fff 60%)}
+.summary-card.top-group.rank-2{background:linear-gradient(180deg,#f8fafc 0%,#fff 60%)}
+.summary-card.top-group.rank-3{background:linear-gradient(180deg,#fff7ed 0%,#fff 60%)}
+.summary-card.top-person{background:linear-gradient(180deg,#f0fdf4 0%,#fff 60%)}
+.summary-card.top-person.rank-4{background:linear-gradient(180deg,#f0fdf4 0%,#fff 60%)}
+.summary-card.top-group::before{background:var(--gold)}
+.summary-card.top-group.rank-2::before{background:var(--silver)}
+.summary-card.top-group.rank-3::before{background:var(--bronze)}
+.summary-card.top-person::before{background:var(--success)}
+.summary-card.top-person.rank-4::before{background:#86efac}
+.summary-card .label{font-size:13px;color:var(--text-dim);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.summary-card .value{font-size:24px;font-weight:700;color:var(--text);line-height:1.2}
+.summary-card .sub{font-size:12px;color:var(--text-dim);margin-top:6px}
+.summary-card .medal{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:700;color:#fff;background:var(--text-dim);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.summary-card.top-group .medal{background:var(--gold)}
+.summary-card.top-group.rank-2 .medal{background:var(--silver)}
+.summary-card.top-group.rank-3 .medal{background:var(--bronze)}
+.summary-card.top-person .medal{background:var(--success)}
+.summary-card.top-person.rank-4 .medal{background:#86efac;color:#166534}
+.summary-card .score{font-size:18px;font-weight:700;color:var(--primary);margin-top:10px}
+.summary-card .score small{font-size:12px;color:var(--text-dim);font-weight:500;margin-left:4px}
+.summary-card .members{margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)}
+.summary-card .members-title{font-size:12px;color:var(--text-dim);margin-bottom:8px}
+.summary-card .member-tags{display:flex;flex-wrap:wrap;gap:6px}
+.summary-card .member-tag{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;background:var(--surface2);font-size:12px;color:var(--text);border:1px solid var(--border);font-weight:500}
+.table-container{background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow)}
+.table-scroll{overflow-x:auto;max-height:600px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{position:sticky;top:0;z-index:10}
+th{background:var(--surface2);padding:12px 10px;text-align:center;font-weight:700;color:var(--text);border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--border)}
+tr:hover td{background:#f8fafc}
+tr.group-header td{background:#eef4ff;font-weight:700;color:var(--primary);text-align:left;padding-left:20px}
+.rank-1{background:#fffbeb!important;color:#b45309;font-weight:700}
+.rank-2{background:#f8fafc!important;color:#475569;font-weight:700}
+.rank-3{background:#fff7ed!important;color:#9a3412;font-weight:700}
+.total-cell{font-weight:700;color:var(--primary)}
+.negative{color:var(--danger)}
+.empty-state{text-align:center;padding:80px 20px;color:var(--text-dim)}
+.empty-state .icon{font-size:64px;margin-bottom:16px;opacity:.4}
+.hidden{display:none!important}
+@media(max-width:768px){.header h1{font-size:22px}.upload-area{padding:30px 15px}.summary-row{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.summary-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📊 Excel 积分统计工具</h1>
+    <p>导入 Excel 积分表，自动统计个人总分、小组总分、排名等，支持导出结果</p>
+  </div>
+  <div id="uploadArea" class="upload-area">
+    <div class="upload-icon">📁</div>
+    <p>点击或拖拽 Excel 文件到此处</p>
+    <p class="hint">支持 .xlsx 格式 | 数据在浏览器本地处理，不会上传</p>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+  </div>
+  <div id="mainContent" class="hidden">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="file-info">📄 <span id="fileName">-</span></div>
+        <div class="file-info">👥 <span id="studentCount">0</span> 人</div>
+        <div class="file-info">🏠 <span id="groupCount">0</span> 组</div>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <button class="btn btn-secondary" onclick="resetAll()">🔄 重新导入</button>
+        <button class="btn btn-success" onclick="exportExcel()" id="exportBtn">⬇️ 导出 Excel</button>
+      </div>
+    </div>
+    <div class="summary-cards" id="summaryCards"></div>
+    <div class="tabs">
+      <div class="tab active" data-tab="detail" onclick="switchTab('detail')">📋 个人明细统计</div>
+      <div class="tab" data-tab="group" onclick="switchTab('group')">🏠 小组汇总（按平均分）</div>
+      <div class="tab" data-tab="ranking" onclick="switchTab('ranking')">🏆 小组前3 + 个人前4</div>
+    </div>
+    <div id="tabContent"></div>
+  </div>
+</div>
+<script>
+let rawData=null,statsResult=null;
+
+// ===== File Upload =====
+const uploadArea=document.getElementById('uploadArea');
+const fileInput=document.getElementById('fileInput');
+uploadArea.addEventListener('click',()=>fileInput.click());
+uploadArea.addEventListener('dragover',e=>{e.preventDefault();uploadArea.classList.add('dragover')});
+uploadArea.addEventListener('dragleave',()=>uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop',e=>{e.preventDefault();uploadArea.classList.remove('dragover');if(e.dataTransfer.files.length>0)handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener('change',e=>{if(e.target.files.length>0)handleFile(e.target.files[0])});
+
+function handleFile(file){
+  if(!file.name.match(/\.xlsx?$/i)){alert('请上传 .xlsx 或 .xls 格式的文件');return}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      rawData=parseExcelData(rows,ws);
+      rawData._originalRows=rows;     // 保存原始行数据
+      rawData._originalMerges=ws['!merges']||[]; // 保存原始合并信息
+      rawData._originalSheetName=wb.SheetNames[0];
+      statsResult=computeStatistics(rawData);
+      document.getElementById('fileName').textContent=file.name;
+      document.getElementById('studentCount').textContent=rawData.totalStudents;
+      document.getElementById('groupCount').textContent=rawData.totalGroups;
+      renderSummaryCards();
+      renderDetailTable();
+      uploadArea.classList.add('hidden');
+      document.getElementById('mainContent').classList.remove('hidden');
+    }catch(err){alert('解析文件失败: '+err.message);console.error(err)}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ===== Parse Excel =====
+function parseExcelData(rows,ws){
+  let headerRowIdx=-1,nameCol=-1,groupCol=-1,totalCol=-1;
+  for(let i=0;i<Math.min(5,rows.length);i++){
+    const row=rows[i]||[];
+    for(let j=0;j<row.length;j++){
+      const val=String(row[j]||'').trim();
+      if(val==='组别')groupCol=j;
+      if(val==='姓名')nameCol=j;
+      if(val==='个总')totalCol=j;
+    }
+    if(groupCol>=0&&nameCol>=0){headerRowIdx=i;break}
+  }
+  if(headerRowIdx===-1)throw new Error('未找到表头行（需包含"组别"和"姓名"）');
+  const title=(rows[0]&&rows[0][0])?String(rows[0][0]):'积分统计表';
+  const scoreStartCol=nameCol+1;
+  const scoreEndCol=totalCol>0?totalCol-1:(rows[headerRowIdx+1]||[]).length-1;
+  const groupMap={};
+  if(ws['!merges']){
+    for(const merge of ws['!merges']){
+      if(merge.s.c===groupCol&&merge.e.c===groupCol){
+        const startRow=merge.s.r,endRow=merge.e.r;
+        const cellRef=XLSX.utils.encode_cell({r:startRow,c:groupCol});
+        const gn=ws[cellRef]?ws[cellRef].v:null;
+        if(gn){for(let r=startRow;r<=endRow;r++)groupMap[r]=String(gn).trim()}
+      }
+    }
+  }
+  const groupsDict={},groupOrder=[];
+  for(let i=headerRowIdx+1;i<rows.length;i++){
+    const row=rows[i]||[];
+    const name=row[nameCol];
+    if(!name||String(name).trim()==='')continue;
+    let groupName=groupMap[i];
+    if(!groupName)groupName=row[groupCol]?String(row[groupCol]).trim():'未分组';
+    if(!groupsDict[groupName]){groupsDict[groupName]=[];groupOrder.push(groupName)}
+    const scores=[];
+    for(let j=scoreStartCol;j<=scoreEndCol;j++){
+      const val=row[j];
+      if(val===null||val===undefined||val==='')scores.push(0);
+      else if(typeof val==='number')scores.push(val);
+      else{const n=parseFloat(val);scores.push(isNaN(n)?0:n)}
+    }
+    groupsDict[groupName].push({name:String(name).trim(),scores});
+  }
+  const groups=groupOrder.map(g=>({name:g,members:groupsDict[g]}));
+  const scoreItemNames=[];
+  for(let j=scoreStartCol;j<=scoreEndCol;j++)scoreItemNames.push('积分项'+(j-scoreStartCol+1));
+  return{title,scoreItemNames,groups,totalStudents:groups.reduce((s,g)=>s+g.members.length,0),totalGroups:groups.length};
+}
+
+// ===== Compute Statistics =====
+// 排名规则:
+//   小组排名: 按小组平均分降序，选出前3组
+//   个人排名: 按个人总分降序，排除小组前3组的成员后，选出前4名
+//   无组内排名
+function computeStatistics(data){
+  const students=[];
+  for(const group of data.groups){
+    for(const m of group.members){
+      students.push({group:group.name,name:m.name,scores:m.scores,total:m.scores.reduce((s,v)=>s+v,0)});
+    }
+  }
+  // --- 小组统计 ---
+  const groupStats={};
+  for(const group of data.groups){
+    const gt=group.members.reduce((s,m)=>s+m.scores.reduce((a,b)=>a+b,0),0);
+    const c=group.members.length;
+    groupStats[group.name]={total:gt,count:c,average:c>0?Math.round(gt/c*100)/100:0};
+  }
+  // 小组排名: 按平均分降序
+  const gr=Object.entries(groupStats).sort((a,b)=>b[1].average-a[1].average);
+  gr.forEach((e,i)=>e[1].rank=i+1);
+  // 小组前3名名称集合
+  const top3Groups=new Set(gr.slice(0,3).map(e=>e[0]));
+
+  // --- 个人排名 ---
+  // 全班按总分降序
+  const sorted=students.slice().sort((a,b)=>b.total-a.total);
+  sorted.forEach((s,i)=>s.classRank=i+1);
+  // 排除小组前3组成员后，选出前4名个人
+  const personalTop4=sorted.filter(s=>!top3Groups.has(s.group)).slice(0,4);
+  personalTop4.forEach((s,i)=>s.personalTopRank=i+1);
+
+  // 附加小组信息到每个学生
+  for(const s of students){
+    const gs=groupStats[s.group];
+    s.groupTotal=gs.total;
+    s.groupAvg=gs.average;
+    s.groupRankOverall=gs.rank;
+  }
+
+  const groupSummary=Object.entries(groupStats)
+    .map(([n,s])=>({name:n,memberCount:s.count,total:s.total,average:s.average,rank:s.rank,isTop3:s.rank<=3}))
+    .sort((a,b)=>a.rank-b.rank);
+
+  return{title:data.title,scoreItemNames:data.scoreItemNames,students,groupSummary,top3Groups:gr.slice(0,3).map(e=>e[0]),personalTop4};
+}
+
+// ===== Render: Summary Cards =====
+function renderSummaryCards(){
+  const top3G=statsResult.groupSummary.filter(g=>g.isTop3);
+  const p4=statsResult.personalTop4;
+  let html='';
+  // 第一行：小组前三名
+  html+='<h2 class="summary-section-title">🏆 奖励小组</h2>';
+  html+='<div class="summary-row">';
+  top3G.forEach((g,i)=>{
+    const rankClass='rank-'+(i+1);
+    const groupData=rawData.groups.find(rg=>rg.name===g.name);
+    const memberTags=(groupData?groupData.members:[]).map(m=>'<span class="member-tag">'+m.name+'</span>').join('');
+    html+='<div class="summary-card top-group '+rankClass+'">'+
+      '<div class="label"><span class="medal">'+(i+1)+'</span> 小组第'+(i+1)+'名</div>'+
+      '<div class="value">'+g.name+'</div>'+
+      '<div class="score">'+g.average+'<small>分/人</small></div>'+
+      '<div class="sub">小组总分 '+g.total+' 分 · '+g.memberCount+'人</div>'+
+      '<div class="members">'+
+      '<div class="members-title">组员</div>'+
+      '<div class="member-tags">'+memberTags+'</div>'+
+      '</div>'+
+      '</div>';
+  });
+  html+='</div>';
+  // 第二行：个人前四名（排除小组前三组成员）
+  html+='<h2 class="summary-section-title">🏅 奖励个人</h2>';
+  html+='<div class="summary-row">';
+  p4.forEach((s,i)=>{
+    const rankClass=i===3?'rank-4':'';
+    html+='<div class="summary-card top-person '+rankClass+'">'+
+      '<div class="label"><span class="medal">'+(i+1)+'</span> 个人第'+(i+1)+'名</div>'+
+      '<div class="value">'+s.name+'</div>'+
+      '<div class="score">'+s.total+'<small>分</small></div>'+
+      '<div class="sub">'+s.group+' · 全班第 '+s.classRank+' 名</div>'+
+      '</div>';
+  });
+  html+='</div>';
+  document.getElementById('summaryCards').innerHTML=html;
+}
+
+// ===== Render: Detail Table =====
+function renderDetailTable(){
+  const sn=statsResult.scoreItemNames;
+  const top3Set=statsResult.top3Groups;
+  // 按原始小组顺序排列（rawData.groups 中的顺序），组内按总分降序
+  const groupOrderMap=new Map(rawData.groups.map((g,i)=>[g.name,i]));
+  const sorted=statsResult.students.slice().sort((a,b)=>{
+    const oa=groupOrderMap.get(a.group)??999;
+    const ob=groupOrderMap.get(b.group)??999;
+    if(oa!==ob)return oa-ob;
+    return b.total-a.total;
+  });
+  let html='<div class="table-container"><div class="table-scroll"><table><thead><tr>';
+  html+='<th>组别</th><th>姓名</th>';
+  sn.forEach(n=>html+='<th>'+n+'</th>');
+  html+='<th>个人总分</th><th>全班排名</th><th>个人前4</th></tr></thead><tbody>';
+  let curGroup=null;
+  for(const s of sorted){
+    if(s.group!==curGroup){
+      curGroup=s.group;
+      const gs=statsResult.groupSummary.find(g=>g.name===curGroup);
+      const span=sn.length+5;
+      const badge=top3Set.includes(curGroup)?' ⭐小组前3':'';
+      html+='<tr class="group-header"><td colspan="'+span+'">📁 '+curGroup+badge+' ｜ 总分: '+gs.total+' ｜ 平均: '+gs.average+' ｜ 小组排名: 第'+gs.rank+'名 ｜ 人数: '+gs.memberCount+'</td></tr>';
+    }
+    html+='<tr><td>'+s.group+'</td><td>'+s.name+'</td>';
+    s.scores.forEach(sc=>html+='<td class="'+(sc<0?'negative':'')+'">'+sc+'</td>');
+    html+='<td class="total-cell">'+s.total+'</td>';
+    html+='<td>'+s.classRank+'</td>';
+    // 个人前4标记
+    if(s.personalTopRank){
+      const rc=s.personalTopRank<=3?'rank-'+s.personalTopRank:'';
+      html+='<td class="'+rc+'">第'+s.personalTopRank+'名</td>';
+    }else{
+      html+='<td>-</td>';
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table></div></div>';
+  document.getElementById('tabContent').innerHTML=html;
+}
+
+// ===== Render: Group Summary =====
+function renderGroupTable(){
+  const gs=statsResult.groupSummary;
+  const maxAvg=gs[0]?gs[0].average:0;
+  let html='<div class="table-container"><div class="table-scroll"><table><thead><tr>';
+  html+='<th>排名</th><th>小组名称</th><th>小组人数</th><th>小组总分</th><th>小组平均分</th><th>与第一名均分差</th><th>是否前3</th></tr></thead><tbody>';
+  for(const g of gs){
+    const rc=g.rank<=3?'rank-'+g.rank:'';
+    const gap=Math.round((maxAvg-g.average)*100)/100;
+    const badge=g.isTop3?'⭐ 是':'';
+    html+='<tr><td class="'+rc+'">'+g.rank+'</td><td>'+g.name+'</td><td>'+g.memberCount+'</td>';
+    html+='<td>'+g.total+'</td><td class="total-cell">'+g.average+'</td><td>'+gap+'</td><td>'+badge+'</td></tr>';
+  }
+  html+='</tbody></table></div></div>';
+  document.getElementById('tabContent').innerHTML=html;
+}
+
+// ===== Render: Ranking =====
+function renderRankingTable(){
+  // === 小组前3（按平均分） ===
+  const top3G=statsResult.groupSummary.filter(g=>g.isTop3);
+  let html='<h3 style="margin-bottom:12px;color:var(--text)">⭐ 小组前3名（按平均分排名）</h3>';
+  html+='<div class="table-container"><div class="table-scroll"><table><thead><tr>';
+  html+='<th>排名</th><th>小组名称</th><th>小组人数</th><th>小组总分</th><th>小组平均分</th></tr></thead><tbody>';
+  for(const g of top3G){
+    const rc='rank-'+g.rank;
+    html+='<tr><td class="'+rc+'">'+g.rank+'</td><td>'+g.name+'</td><td>'+g.memberCount+'</td>';
+    html+='<td>'+g.total+'</td><td class="total-cell">'+g.average+'</td></tr>';
+  }
+  html+='</tbody></table></div></div>';
+
+  // === 个人前4（排除小组前3成员） ===
+  const p4=statsResult.personalTop4;
+  html+='<div style="margin-top:24px"><h3 style="margin-bottom:12px;color:var(--text)">🏅 个人前4名（排除小组前3组成员，按总分排名）</h3>';
+  html+='<div class="table-container"><div class="table-scroll"><table><thead><tr>';
+  html+='<th>排名</th><th>姓名</th><th>所在小组</th><th>个人总分</th><th>全班排名</th></tr></thead><tbody>';
+  for(const s of p4){
+    const rc=s.personalTopRank<=3?'rank-'+s.personalTopRank:'';
+    html+='<tr><td class="'+rc+'">'+s.personalTopRank+'</td><td>'+s.name+'</td><td>'+s.group+'</td>';
+    html+='<td class="total-cell">'+s.total+'</td><td>'+s.classRank+'</td></tr>';
+  }
+  html+='</tbody></table></div></div>';
+
+  // === 全班排名总表 ===
+  const sorted=statsResult.students.slice().sort((a,b)=>b.total-a.total);
+  html+='<div style="margin-top:24px"><h3 style="margin-bottom:12px;color:var(--text)">📋 全班积分排名（完整）</h3>';
+  html+='<div class="table-container"><div class="table-scroll"><table><thead><tr>';
+  html+='<th>全班排名</th><th>姓名</th><th>所在小组</th><th>个人总分</th><th>个人前4</th></tr></thead><tbody>';
+  for(const s of sorted){
+    const pTag=s.personalTopRank?('第'+s.personalTopRank+'名'):'-';
+    html+='<tr><td>'+s.classRank+'</td><td>'+s.name+'</td><td>'+s.group+'</td>';
+    html+='<td class="total-cell">'+s.total+'</td><td>'+pTag+'</td></tr>';
+  }
+  html+='</tbody></table></div></div>';
+  document.getElementById('tabContent').innerHTML=html;
+}
+
+// ===== Tab Switch =====
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('[data-tab="'+tab+'"]').classList.add('active');
+  if(tab==='detail')renderDetailTable();
+  else if(tab==='group')renderGroupTable();
+  else if(tab==='ranking')renderRankingTable();
+}
+
+// ===== Export Excel =====
+// 保持原始格式（小组顺序、合并单元格不变），只补充统计列。
+// 小组平均分列按组合并；小组排名列前3名用颜色标注；
+// 全班排名列每人都有值，个人前4用颜色标注（无单独列）。
+async function exportExcel(){
+  if(!statsResult)return;
+  const btn=document.getElementById('exportBtn');
+  const origText=btn.innerHTML;
+  btn.innerHTML='<span class="loading"></span> 生成中...';
+  btn.disabled=true;
+
+  try{
+    const rows=rawData._originalRows;
+    const merges=rawData._originalMerges;
+    const top3Set=statsResult.top3Groups;
+    const p4Set=new Set(statsResult.personalTop4.map(s=>s.name+s.group));
+
+    // 找到表头行和关键列
+    let headerRowIdx=-1,nameCol=-1,groupCol=-1,totalCol=-1;
+    for(let i=0;i<Math.min(5,rows.length);i++){
+      const r=rows[i]||[];
+      for(let j=0;j<r.length;j++){
+        const v=String(r[j]||'').trim();
+        if(v==='组别')groupCol=j;
+        if(v==='姓名')nameCol=j;
+        if(v==='个总')totalCol=j;
+      }
+      if(groupCol>=0&&nameCol>=0){headerRowIdx=i;break}
+    }
+    const scoreStartCol=nameCol+1;
+    const scoreEndCol=totalCol>0?totalCol-1:(rows[headerRowIdx+1]||[]).length-1;
+
+    // 学生查找表
+    const studentMap={};
+    statsResult.students.forEach(s=>studentMap[s.name+s.group]=s);
+
+    // 收集每个小组的行范围 (用于合并平均分单元格)
+    const groupRanges={}; // groupName -> {startRow, endRow} (0-based row index in rows[])
+    for(let i=headerRowIdx+1;i<rows.length;i++){
+      const r=rows[i]||[];
+      const name=r[nameCol];
+      if(!name||String(name).trim()==='')continue;
+      // 找小组名
+      let groupName='';
+      for(const m of merges){
+        if(m.s.c===groupCol&&m.e.c===groupCol&&i>=m.s.r&&i<=m.e.r){
+          groupName=String(rows[m.s.r][groupCol]||'').trim();break;
+        }
+      }
+      if(!groupName)groupName=String(r[groupCol]||'').trim();
+      if(!groupRanges[groupName])groupRanges[groupName]={startRow:i,endRow:i};
+      else groupRanges[groupName].endRow=i;
+    }
+
+    // 创建 ExcelJS workbook
+    const wb=new window.ExcelJS.Workbook();
+    const ws=wb.addWorksheet(rawData._originalSheetName||'Sheet1');
+
+    // ---- 写入原始数据 ----
+    for(let i=0;i<rows.length;i++){
+      const r=rows[i]||[];
+      const excelRow=ws.getRow(i+1);
+      for(let j=0;j<r.length;j++){
+        excelRow.getCell(j+1).value=r[j];
+      }
+    }
+
+    // ---- 直接在原始统计列中填充数据 ----
+    // 原始列位置 (1-based for ExcelJS):
+    //   个总(AA) = totalCol+1, 组总(AB) = totalCol+2,
+    //   人均(AC) = totalCol+3, 组排(AD) = totalCol+4,
+    //   排名(AE) = totalCol+5
+    // 注意: totalCol 是 SheetJS 0-based 的"个总"列号
+    const cIndivTotal = totalCol + 1;  // 个总 (1-based)
+    const cGroupTotal = totalCol + 2;  // 组总
+    const cGroupAvg   = totalCol + 3;  // 人均
+    const cGroupRank  = totalCol + 4;  // 组排
+    const cClassRank  = totalCol + 5;  // 排名
+
+    // 表头样式（如果原始表头已存在则只加样式）
+    const hdrRow=ws.getRow(headerRowIdx+1);
+    const hdrStyle={font:{bold:true,color:{argb:'FFFFFFFF'}},alignment:{horizontal:'center',vertical:'middle'},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF2F5496'}}};
+    [cIndivTotal,cGroupTotal,cGroupAvg,cGroupRank,cClassRank].forEach(c=>{
+      const cell=hdrRow.getCell(c);
+      cell.font=hdrStyle.font;cell.alignment=hdrStyle.alignment;cell.fill=hdrStyle.fill;
+    });
+
+    // 颜色
+    const C_G1='FFFFD700',C_G2='FFC0C0C0',C_G3='FFCD7F32'; // 小组前3: 金银铜
+    const C_P1='FFFFD700',C_P2='FFC0C0C0',C_P3='FFCD7F32',C_P4='FF90EE90'; // 个人前4
+
+    // ---- 写每行统计值 + 颜色 ----
+    for(let i=headerRowIdx+1;i<rows.length;i++){
+      const r=rows[i]||[];
+      const name=r[nameCol];
+      if(!name||String(name).trim()==='')continue;
+      const nameStr=String(name).trim();
+
+      let groupName='';
+      for(const m of merges){
+        if(m.s.c===groupCol&&m.e.c===groupCol&&i>=m.s.r&&i<=m.e.r){
+          groupName=String(rows[m.s.r][groupCol]||'').trim();break;
+        }
+      }
+      if(!groupName)groupName=String(r[groupCol]||'').trim();
+
+      const student=studentMap[nameStr+groupName];
+      if(!student)continue;
+
+      const excelRow=ws.getRow(i+1);
+      const isGroupTop3=top3Set.includes(groupName);
+      const isP4=p4Set.has(nameStr+groupName);
+      const gr=groupRanges[groupName];
+      const isFirstInGroup=(i===gr.startRow);
+
+      // 1. 个总 (个人总分) - 每行都写
+      excelRow.getCell(cIndivTotal).value=student.total;
+      excelRow.getCell(cIndivTotal).alignment={horizontal:'center',vertical:'middle'};
+
+      // 2. 组总 (小组总分) - 只在第一行写，其余清空（合并后由首格显示）
+      if(isFirstInGroup){
+        excelRow.getCell(cGroupTotal).value=student.groupTotal;
+      }else{
+        excelRow.getCell(cGroupTotal).value=null;
+      }
+      excelRow.getCell(cGroupTotal).alignment={horizontal:'center',vertical:'middle'};
+
+      // 3. 人均 (小组平均分) - 只在第一行写，其余清空
+      if(isFirstInGroup){
+        excelRow.getCell(cGroupAvg).value=student.groupAvg;
+      }else{
+        excelRow.getCell(cGroupAvg).value=null;
+      }
+      excelRow.getCell(cGroupAvg).alignment={horizontal:'center',vertical:'middle'};
+
+      // 4. 组排 (小组排名) - 只在第一行写，其余清空；前3名标注颜色
+      if(isFirstInGroup){
+        excelRow.getCell(cGroupRank).value=student.groupRankOverall;
+      }else{
+        excelRow.getCell(cGroupRank).value=null;
+      }
+      excelRow.getCell(cGroupRank).alignment={horizontal:'center',vertical:'middle'};
+      if(isGroupTop3&&isFirstInGroup){
+        let gc=C_G3;
+        if(student.groupRankOverall===1)gc=C_G1;
+        else if(student.groupRankOverall===2)gc=C_G2;
+        excelRow.getCell(cGroupRank).fill={type:'pattern',pattern:'solid',fgColor:{argb:gc}};
+        excelRow.getCell(cGroupRank).font={bold:true};
+      }
+
+      // 5. 排名 (全班排名) - 每人都有值，个人前4标注颜色
+      excelRow.getCell(cClassRank).value=student.classRank;
+      excelRow.getCell(cClassRank).alignment={horizontal:'center',vertical:'middle'};
+      if(isP4){
+        const p4data=statsResult.personalTop4.find(s=>s.name===nameStr&&s.group===groupName);
+        if(p4data){
+          let pc=C_P4;
+          if(p4data.personalTopRank===1)pc=C_P1;
+          else if(p4data.personalTopRank===2)pc=C_P2;
+          else if(p4data.personalTopRank===3)pc=C_P3;
+          excelRow.getCell(cClassRank).fill={type:'pattern',pattern:'solid',fgColor:{argb:pc}};
+          excelRow.getCell(cClassRank).font={bold:true};
+        }
+      }
+    }
+
+    // ---- 合并 组总/人均/组排 列（按小组范围合并，和原始表一致）----
+    function colToLetter(col){let s='';col++;while(col>0){const m=(col-1)%26;s='ABCDEFGHIJKLMNOPQRSTUVWXYZ'[m]+s;col=Math.floor((col-1)/26)}return s}
+    // 先移除原始合并中属于 组总/人均/组排 列的（避免冲突），保留其余原始合并
+    const colsToMerge=[cGroupTotal-1,cGroupAvg-1,cGroupRank-1]; // 0-based
+    const remainingMerges=merges.filter(m=>{
+      // 如果合并区域完全在 组总/人均/组排 列内，则跳过（我们自己重新合并）
+      if(m.s.c===m.e.c&&colsToMerge.includes(m.s.c))return false;
+      return true;
+    });
+    // 恢复剩余的原始合并
+    for(const m of remainingMerges){
+      const tl=colToLetter(m.s.c)+(m.s.r+1);
+      const br=colToLetter(m.e.c)+(m.e.r+1);
+      try{ws.mergeCells(tl+':'+br)}catch(e){}
+    }
+    // 重新合并 组总/人均/组排 列
+    for(const gname in groupRanges){
+      const gr=groupRanges[gname];
+      if(gr.endRow>gr.startRow){
+        for(const c of [cGroupTotal,cGroupAvg,cGroupRank]){
+          const tl=colToLetter(c-1)+(gr.startRow+1);
+          const br=colToLetter(c-1)+(gr.endRow+1);
+          try{ws.mergeCells(tl+':'+br)}catch(e){}
+        }
+      }
+    }
+
+    // ---- 全局居中对齐（垂直+水平居中）----
+    const centerAlign={horizontal:'center',vertical:'middle'};
+    ws.eachRow(row=>{
+      row.eachCell(cell=>{ cell.alignment=centerAlign; });
+    });
+
+    // ---- 列宽 ----
+    ws.getColumn(groupCol+1).width=12;
+    ws.getColumn(nameCol+1).width=12;
+    for(let j=scoreStartCol;j<=scoreEndCol;j++)ws.getColumn(j+1).width=8;
+    ws.getColumn(cIndivTotal).width=10;
+    ws.getColumn(cGroupTotal).width=10;
+    ws.getColumn(cGroupAvg).width=10;
+    ws.getColumn(cGroupRank).width=10;
+    ws.getColumn(cClassRank).width=10;
+
+    // ---- 下载 ----
+    const buffer=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='积分统计结果_'+new Date().toISOString().slice(0,10)+'.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }catch(err){
+    alert('导出失败: '+err.message);
+    console.error(err);
+  }finally{
+    btn.innerHTML=origText;
+    btn.disabled=false;
+  }
+}
+
+// ===== Reset =====
+function resetAll(){
+  rawData=null;statsResult=null;
+  fileInput.value='';
+  uploadArea.classList.remove('hidden');
+  document.getElementById('mainContent').classList.add('hidden');
+}
+</script>
+</body>
+</html>

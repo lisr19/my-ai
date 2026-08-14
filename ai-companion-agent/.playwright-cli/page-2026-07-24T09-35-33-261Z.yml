@@ -1,0 +1,36 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "JOY" [level=1] [ref=e6]
+      - generic [ref=e7]: 英语老师
+      - generic [ref=e8]: 在线
+    - generic [ref=e9]:
+      - button "静音" [ref=e10] [cursor=pointer]:
+        - img [ref=e11]
+      - button "清空对话" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+  - generic [ref=e17]:
+    - generic [ref=e52]: "???"
+    - generic [ref=e22]: 思考中...
+  - generic [ref=e23]:
+    - generic [ref=e43]:
+      - generic [ref=e45]: 你好
+      - generic [ref=e47]: 我
+    - generic [ref=e48]:
+      - img "JOY" [ref=e49]
+      - generic [ref=e51]: 同学你好！我是你的英语老师JOY，很高兴见到你～有什么英语学习上的问题或者想提高的地方，尽管告诉我，我们一起解决！不管是语法、词汇、阅读还是写作，老师都会用最清楚的方式帮你弄明白。来吧，说说你的情况？
+    - generic [ref=e53]:
+      - generic [ref=e55]: 请给我讲一个长一点的故事
+      - generic [ref=e57]: 我
+    - generic [ref=e58]:
+      - img "JOY" [ref=e59]
+      - generic [ref=e61]: 同学，想听长故事啊？那老师就给你讲一个既有趣又适合练英语的小故事吧！这个故事还能帮你记几个常考单词和句型呢～ --- **故事：《The Little Seed’s Big Dream》** 从前，有一颗小种子，名字叫Sammy。他住在一片黑暗的泥土里，每天都很害怕，因为他不知道外面是什么样子。 > “Will I ever see the sun?”（我还能见到太阳吗？）他问妈妈。 妈妈微笑着说： > “Be patient, Sammy. You have to grow first.”（要有耐心，Sammy，你得先长大。） 于是，Sammy努力吸水、吸收养分。日子一天天过去，他慢慢长出了一根小小的根。 有一天，他感到泥土在动。原来是一只小蚯蚓，名字叫Wiggly。 > “Hey, little seed! Why are you still here?”（嘿，小种子！你怎么还在这儿？） Sammy叹了口气： > “I’m trying to grow, but it’s so hard.”（我在努力长大，但好难啊。） Wiggly笑着说： > “Don’t stop! The sun is warm, the rain is sweet. Just keep trying!”（别停下！太阳很暖，雨水很甜。继续努力吧！） Sammy受到了鼓励。他使劲往上顶，终于有一天—— **“Crack!”** 他破土而出！ 他看到了蓝天、白云、蝴蝶，还有温暖的阳光。他开心地喊道： > “I did it! I am a little plant now!”（我做到了！我现在是一棵小植物了！） 后来，Sammy越长越高，开出了漂亮的小花。路过的小朋友们都说： > “What a beautiful flower!”（多漂亮的花啊！） Sammy笑了，心里想： > “If I had given up, I would have never seen the world.”（如果我放弃了，我永远都不会看到这个世界。） --- [emotion:happy] 故事讲完啦！同学，这故事里包含了好几个中考常考的语法点哦： - **将来时**：Will I ever see...? - **感叹句**：What a beautiful flower! - **虚拟语气**：If I had given up, I would have never seen... 要不要老师帮你把这三个句型详细讲解一下？或者你也可以试着用英语复述一遍
+    - img "JOY" [ref=e63]
+  - generic [ref=e28]:
+    - button "上传图片" [disabled] [ref=e29]:
+      - img [ref=e30]
+    - textbox "输入消息，或点击麦克风说话..." [disabled] [ref=e34]
+    - button "语音输入" [disabled] [ref=e35]:
+      - img [ref=e36]
+    - button "发送" [disabled] [ref=e39]:
+      - img [ref=e40]

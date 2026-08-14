@@ -5,17 +5,55 @@ const SILENT_MP3 = 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVud
 
 /**
  * TTS Hook - 复用持久化 audio 元素，绕过 autoplay 限制
+ *
+ * 同时在用户手势中初始化 Web Audio API 分析器，
+ * 用于驱动数字人口型动画（amplitudeRef）。
  */
 export function useEdgeTTS() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef(null);
-  const readyRef = useRef(false);          // audio 是否已被解锁
+
+  // Web Audio 分析器（在用户手势中创建，符合浏览器 autoplay policy）
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const ampRafRef = useRef(null);
+  const amplitudeRef = useRef(0);
+
+  const readyRef = useRef(false);
   const currentBlobUrlRef = useRef(null);
   const playTokenRef = useRef(0);
 
   /**
-   * 在用户手势内初始化并解锁 audio 元素
+   * 启动音频分析循环
+   * 计算音频 RMS 音量幅度，用于驱动口型同步
+   */
+  const startAmplitudeLoop = useCallback(() => {
+    if (ampRafRef.current || !analyserRef.current) return;
+    const analyser = analyserRef.current;
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+
+    const tick = () => {
+      if (!analyserRef.current) return;
+      analyser.getByteTimeDomainData(buf);
+
+      // 计算 RMS（均方根）
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = (buf[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / buf.length);
+      // 放大让小幅度的语音也能驱动口型
+      amplitudeRef.current = Math.min(1, rms * 4.5);
+
+      ampRafRef.current = requestAnimationFrame(tick);
+    };
+    ampRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  /**
+   * 在用户手势内初始化并解锁 audio 元素 + 音频分析器
    */
   const unlockAudio = useCallback(() => {
     if (readyRef.current) return;
@@ -29,10 +67,42 @@ export function useEdgeTTS() {
       if (p && p.then) p.catch(() => {});
       audioRef.current = audio;
       readyRef.current = true;
+
+      // 创建 Web Audio 分析器（必须在用户手势中创建）
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        try {
+          const audioCtx = new AudioCtx();
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.4;
+          analyser.minDecibels = -70;
+          analyser.maxDecibels = -10;
+
+          // 将 audio 元素连接到分析器，并输出到音箱
+          const source = audioCtx.createMediaElementSource(audio);
+          source.connect(analyser);
+          analyser.connect(audioCtx.destination);
+
+          audioCtxRef.current = audioCtx;
+          analyserRef.current = analyser;
+
+          // Chrome autoplay policy：恢复被挂起的音频上下文
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+
+          // 启动分析循环
+          startAmplitudeLoop();
+          console.log('[TTS] Audio analyzer initialized');
+        } catch (e) {
+          console.warn('[TTS] Audio analyzer init failed:', e);
+        }
+      }
     } catch (e) {
       console.warn('[TTS] unlock failed:', e);
     }
-  }, []);
+  }, [startAmplitudeLoop]);
 
   /**
    * 切换 audio 到指定 URL，等它真正开始播放
@@ -45,7 +115,6 @@ export function useEdgeTTS() {
         return;
       }
 
-      // 取消旧的 token
       const myToken = ++playTokenRef.current;
 
       let cleaned = false;
@@ -69,7 +138,6 @@ export function useEdgeTTS() {
           resolve();
           return;
         }
-        // 解除静音，恢复音量
         audio.muted = false;
         audio.volume = 1;
         audio.play().catch((err) => {
@@ -82,6 +150,8 @@ export function useEdgeTTS() {
 
       audio.onended = () => {
         setIsSpeaking(false);
+        // 音频结束，重置幅度
+        amplitudeRef.current = 0;
         cleanup();
       };
 
@@ -92,11 +162,11 @@ export function useEdgeTTS() {
           return;
         }
         setIsSpeaking(false);
+        amplitudeRef.current = 0;
         cleanup();
         reject(e);
       };
 
-      // 设置新的 src（保留 muted=true 直到开始播放，避免突然出声）
       audio.muted = true;
       audio.volume = 0;
       if (currentBlobUrlRef.current) URL.revokeObjectURL(currentBlobUrlRef.current);
@@ -106,9 +176,6 @@ export function useEdgeTTS() {
     });
   }, []);
 
-  /**
-   * 把文字合成为语音并播放（直接覆盖）
-   */
   const speakOne = useCallback(async (text) => {
     if (isMuted || !text || !text.trim()) return;
     try {
@@ -127,9 +194,6 @@ export function useEdgeTTS() {
     }
   }, [isMuted, playUrl]);
 
-  /**
-   * 多段文字按调用顺序排队播放，不会互相打断
-   */
   const queueRef = useRef([]);
   const playingRef = useRef(false);
 
@@ -146,7 +210,6 @@ export function useEdgeTTS() {
   const speak = useCallback((text) => {
     if (isMuted || !text || !text.trim()) return;
     const trimmed = text.trim();
-    // 去重：如果队列最后一项就是相同文字，跳过
     const q = queueRef.current;
     if (q.length > 0 && q[q.length - 1] === trimmed) return;
     q.push(trimmed);
@@ -156,6 +219,7 @@ export function useEdgeTTS() {
   const stopSpeaking = useCallback(() => {
     queueRef.current = [];
     playTokenRef.current++;
+    amplitudeRef.current = 0;
     const audio = audioRef.current;
     if (audio) {
       audio.oncanplay = null;
@@ -189,6 +253,8 @@ export function useEdgeTTS() {
     speak,
     stopSpeaking,
     toggleMute,
-    unlockAudio,   // 暴露给 App.jsx 在用户手势中调用
+    unlockAudio,
+    audioRef,
+    amplitudeRef,  // 直接从 useEdgeTTS 暴露音频幅度引用
   };
 }

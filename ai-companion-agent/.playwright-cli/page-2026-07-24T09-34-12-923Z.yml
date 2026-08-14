@@ -1,0 +1,27 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "JOY" [level=1] [ref=e6]
+      - generic [ref=e7]: 英语老师
+      - generic [ref=e8]: 在线
+    - generic [ref=e9]:
+      - button "静音" [ref=e10] [cursor=pointer]:
+        - img [ref=e11]
+      - button "清空对话" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+  - generic [ref=e22]: 微笑
+  - generic [ref=e23]:
+    - generic [ref=e43]:
+      - generic [ref=e45]: 你好
+      - generic [ref=e47]: 我
+    - generic [ref=e48]:
+      - img "JOY" [ref=e49]
+      - generic [ref=e51]: 同学你好！我是你的英语老师JOY，很高兴见到你～有什么英语学习上的问题或者想提高的地方，尽管告诉我，我们一起解决！不管是语法、词汇、阅读还是写作，老师都会用最清楚的方式帮你弄明白。来吧，说说你的情况？
+  - generic [ref=e28]:
+    - button "上传图片" [ref=e29] [cursor=pointer]:
+      - img [ref=e30]
+    - textbox "输入消息，或点击麦克风说话..." [ref=e34]
+    - button "语音输入" [ref=e35] [cursor=pointer]:
+      - img [ref=e36]
+    - button "发送" [disabled] [ref=e39]:
+      - img [ref=e40]

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import './App.css';
-import ImageAvatar from './components/ImageAvatar.jsx';
+import TalkingPortrait3D from './components/TalkingPortrait3D.jsx';
 import ChatWindow from './components/ChatWindow.jsx';
 import InputArea from './components/InputArea.jsx';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition.js';
@@ -27,6 +27,7 @@ export default function App() {
   const {
     isSpeaking, isMuted,
     speak, stopSpeaking, toggleMute, unlockAudio,
+    audioRef, amplitudeRef,
   } = useEdgeTTS();
 
   // 检查后端状态
@@ -231,11 +232,12 @@ export default function App() {
         </div>
       </header>
 
-      {/* 角色区 */}
+      {/* 3D 数字人角色区 - Sonic 风格 TalkingPortrait */}
       <div className="character-section">
-        <ImageAvatar
+        <TalkingPortrait3D
           emotion={emotion}
           isTalking={isSpeaking}
+          amplitudeRef={amplitudeRef}
         />
         <div className="emotion-label">
           {getEmotionLabel(emotion, isThinking, isListening, isOcrLoading)}

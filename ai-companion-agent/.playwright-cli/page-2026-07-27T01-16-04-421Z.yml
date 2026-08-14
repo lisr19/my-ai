@@ -1,0 +1,26 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "JOY" [level=1] [ref=e6]
+      - generic [ref=e7]: 英语老师
+      - generic [ref=e8]: Demo 模式
+    - generic [ref=e9]:
+      - button "静音" [ref=e10] [cursor=pointer]:
+        - img [ref=e11]
+      - button "清空对话" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+  - generic [ref=e17]:
+    - generic [ref=e18]:
+      - generic: 拖拽鼠标旋转查看 · 真实音频驱动口型
+    - generic [ref=e22]: 微笑
+  - generic [ref=e24]:
+    - paragraph [ref=e25]: 同学你好呀～把题目、单词或语法问题发给老师吧！
+    - paragraph [ref=e26]: 支持文字、图片、语音输入
+  - generic [ref=e28]:
+    - button "上传图片" [ref=e29] [cursor=pointer]:
+      - img [ref=e30]
+    - textbox "输入消息，或点击麦克风说话..." [ref=e34]
+    - button "语音输入" [ref=e35] [cursor=pointer]:
+      - img [ref=e36]
+    - button "发送" [disabled] [ref=e39]:
+      - img [ref=e40]

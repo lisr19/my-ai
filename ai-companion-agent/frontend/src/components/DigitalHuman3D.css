@@ -1,0 +1,143 @@
+/* ============================================================
+   DigitalHuman3D.css - 3D 数字人容器样式
+   ============================================================ */
+
+.digital-human-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(91, 141, 239, 0.06) 0%, transparent 70%);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.digital-human-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  cursor: grab;
+  outline: none;
+}
+
+.digital-human-container canvas:active {
+  cursor: grabbing;
+}
+
+/* 情绪标签覆盖层 */
+.digital-human-emotion {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(43, 108, 176, 0.6);
+  padding: 3px 14px;
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* 音波指示器 */
+.audio-indicator {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 20px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.audio-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to top, #5B8DEF, #FF8C42);
+  transition: height 0.05s ease;
+  opacity: 0.7;
+}
+
+/* 思考气泡 */
+.thought-bubble {
+  position: absolute;
+  top: 8%;
+  right: 12%;
+  background: rgba(43, 108, 176, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  box-shadow: 0 4px 16px rgba(43, 108, 176, 0.3);
+  z-index: 10;
+  animation: think-float 2s ease-in-out infinite;
+  backdrop-filter: blur(8px);
+}
+
+.thought-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 14px;
+  width: 12px;
+  height: 12px;
+  background: rgba(43, 108, 176, 0.9);
+  border-radius: 50%;
+}
+
+.thought-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -18px;
+  left: 8px;
+  width: 7px;
+  height: 7px;
+  background: rgba(43, 108, 176, 0.9);
+  border-radius: 50%;
+}
+
+@keyframes think-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* 提示文字 */
+.interaction-hint {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 0.8s;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .digital-human-container {
+    min-height: 240px;
+  }
+
+  .thought-bubble {
+    top: 6%;
+    right: 8%;
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-height: 600px) {
+  .digital-human-container {
+    min-height: 200px;
+  }
+}

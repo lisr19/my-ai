@@ -1,0 +1,27 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "JOY" [level=1] [ref=e6]
+      - generic [ref=e7]: 英语老师
+      - generic [ref=e8]: 在线
+    - generic [ref=e9]:
+      - button "静音" [ref=e10] [cursor=pointer]:
+        - img [ref=e11]
+      - button "清空对话" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+  - generic [ref=e22]: 开心
+  - generic [ref=e23]:
+    - generic [ref=e43]:
+      - generic [ref=e45]: 请给我讲个开心的故事
+      - generic [ref=e47]: 我
+    - generic [ref=e48]:
+      - img "JOY" [ref=e49]
+      - generic [ref=e51]: 同学你好！听到你想听开心的故事，老师特别高兴～学习英语本来就应该是一件快乐的事！来，老师给你讲一个温暖的小故事吧： 有一只叫Lucky的小狗，它特别想学会说“Hello”。每天它都对着镜子练习：“Woof... Hello... Woof... Hello...” 有一天，它终于成功了！它开心地跑去对主人说：“Woof! Hello!” 主人惊喜地抱起它说：“Lucky, you are amazing!” Lucky虽然只是一只小狗，但它用努力证明了自己。你看，连小狗都在认真学习，我们是不是也可以像它一样，每天进步一点点呢？😊 这个故事里有个小知识点：amazing是“令人惊喜的”意思，以后你考了100分，老师也会对你说“You are amazing!” 怎么样，有信心吗？
+  - generic [ref=e28]:
+    - button "上传图片" [ref=e29] [cursor=pointer]:
+      - img [ref=e30]
+    - textbox "输入消息，或点击麦克风说话..." [ref=e34]
+    - button "语音输入" [ref=e35] [cursor=pointer]:
+      - img [ref=e36]
+    - button "发送" [disabled] [ref=e39]:
+      - img [ref=e40]

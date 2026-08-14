@@ -1,0 +1,33 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "JOY" [level=1] [ref=e6]
+      - generic [ref=e7]: 英语老师
+      - generic [ref=e8]: 在线
+    - generic [ref=e9]:
+      - button "静音" [ref=e10] [cursor=pointer]:
+        - img [ref=e11]
+      - button "清空对话" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+  - generic [ref=e22]: 开心
+  - generic [ref=e23]:
+    - generic [ref=e43]:
+      - generic [ref=e45]: 讲一个开心的故事
+      - generic [ref=e47]: 我
+    - generic [ref=e48]:
+      - img "JOY" [ref=e49]
+      - generic [ref=e51]: 好呀同学！老师给你讲一个我教过的真实小故事吧～ 有一次，班里有个男生特别怕背单词，每次听写都不及格。有一天我把他留下来，没有批评他，而是教了他一个"单词变身法"——比如把"butterfly"拆成butter（黄油）+fly（飞），想象一只抹了黄油的蝴蝶飞起来的样子。他哈哈大笑，一下就记住了。 结果你猜怎么着？第二天听写，他破天荒地考了85分！他兴奋地跑到办公室，眼睛亮晶晶地跟我说："老师，原来背单词可以这么有趣！"后来他还自己发明了好多记单词的小故事，不仅成绩越来越好，还成了班里的小老师。 看着他从害怕英语到爱上英语，那一刻我真的特别开心。所以同学你看，只要找到适合自己的方法，每个同学都能学好英语的！有什么单词让你头疼吗？老师也教你好记的小故事～
+    - generic [ref=e52]:
+      - generic [ref=e54]: 哈哈讲一个有趣的笑话
+      - generic [ref=e56]: 我
+    - generic [ref=e57]:
+      - img "JOY" [ref=e58]
+      - generic [ref=e60]: 哈哈，同学你笑起来真好看！那老师给你讲个英语课上发生过的真实笑话吧～ 有一次我问同学们："'I'm full'是什么意思？"大家都回答"我饱了"。好，没问题。我又问："那'Full moon'呢？"有个小男生特别自信地举手说："老师，我知道！是'吃饱了的月亮'！" 全班都笑翻了！他还在那认真地说："月亮被吃饱了才会变圆嘛！"哈哈，虽然答案不对，但这个想象力我给满分！后来全班都记住了，full moon是"满月"的意思。 怎么样，是不是让你也笑了？其实学英语就是这样，有时候犯个可爱的错误，反而记得更牢呢！
+  - generic [ref=e28]:
+    - button "上传图片" [ref=e29] [cursor=pointer]:
+      - img [ref=e30]
+    - textbox "输入消息，或点击麦克风说话..." [ref=e34]
+    - button "语音输入" [ref=e35] [cursor=pointer]:
+      - img [ref=e36]
+    - button "发送" [disabled] [ref=e39]:
+      - img [ref=e40]
