@@ -1,4 +1,4 @@
-// autoFiller.js - v10 AI智能版 v3.8.7-DEBUG
+// autoFiller.js - v10 AI智能版 v3.9.2
 // 核心：串行按序填充 + 强健的下拉选择 + 同源iframe表单自动填写 + DeepSeek AI智能数据生成
 // ============================================================
 
@@ -274,7 +274,7 @@ function callDeepSeekAI(fields) {
       '  - 购置日期 < 投产日期 < 当前日期',
       '',
       '【▶ 合同管理场景】',
-      '  - 合同编号：HT/CON/AG-YYYY-8位随机数字（禁止使用"BYGJ-"等占位符）',
+      '  - 合同编号：格式 HT-YYYY-8位数字，年份用当前年份，8位数字必须每次完全随机（首位1-9，禁止出现00000001/12345678等连号或顺序号，禁止使用"BYGJ-"等占位符）。例如 HT-'+new Date().getFullYear()+'-73920518',
       '  - 金额区间：采购合同 5-500万，服务合同 1-50万，租赁合同 0.5-30万/年',
       '  - 日期链：签约日 < 生效日 < 截止日，时间间隔合理（30天-3年）',
       '  - 甲乙方：真实企业名称（不要"测试公司"），配合信用代码',
@@ -545,6 +545,64 @@ function postProcessDates(aiValueMap, aiFields){
   });
 }
 
+/**
+ * 后处理：强制合同编号按规则随机生成
+ * AI 有时会反复输出同一个编号（如 HT-2026-00000001），这里直接覆盖，
+ * 保证每次填充的合同编号都不同，且符合 HT-YYYY-8位数字 规则。
+ * 同时兼容 预案编号(YJYA)、设备编号(EQ/SB) 等同类"编号"字段。
+ */
+function postProcessSerialNumbers(aiValueMap, aiFields){
+  if(!aiValueMap || !aiFields) return;
+
+  // 8 位随机数字（首位非0，避免出现 00000001 这种假编号）
+  function rand8(){
+    var s = String(1 + Math.floor(Math.random()*9)); // 首位 1-9
+    for(var i=0;i<7;i++) s += String(Math.floor(Math.random()*10));
+    return s;
+  }
+  var year = new Date().getFullYear();
+
+  // 规则表：关键字 → 生成函数
+  var rules = [
+    { re: /合同编号|合同号|合同编码|contract\s*(no|num|code)/i,
+      gen: function(){ return 'HT-' + year + '-' + rand8(); } },
+    { re: /预案编号|预案号|预案编码/,
+      gen: function(){ return 'YJYA-' + year + '-' + rand8().slice(0,4); } },
+    { re: /设备编号|设备编码|资产编号|资产编码|设备序列号/,
+      gen: function(){ return 'EQ-' + year + '-' + rand8().slice(0,5); } },
+    { re: /项目编号|项目编码|工程编号/,
+      gen: function(){ return 'XM-' + year + '-' + rand8(); } },
+  ];
+
+  var used = {}; // 本次已生成的编号，避免同一张表单内重复
+  function unique(gen, prefix){
+    var v;
+    do { v = gen(); } while(used[prefix] && used[prefix] === v);
+    used[prefix] = v;
+    return v;
+  }
+
+  aiFields.forEach(function(f){
+    var lbl = (f.label || '').replace(/[:：\s]+$/g,'');
+    if(!lbl) return;
+    for(var i=0;i<rules.length;i++){
+      if(rules[i].re.test(lbl)){
+        var newVal = unique(rules[i].gen, String(i));
+        // 找到 aiValueMap 里对应的 key（精确/去冒号/包含）
+        var keys = Object.keys(aiValueMap);
+        var matchedKey = keys.filter(function(k){ return k === lbl; })[0]
+                      || keys.filter(function(k){ return k.replace(/[:：\s]+$/g,'') === lbl; })[0];
+        if(matchedKey){
+          var oldVal = aiValueMap[matchedKey];
+          aiValueMap[matchedKey] = newVal;
+          console.log('[AI后处理] 编号字段 ['+lbl+'] "'+oldVal+'" → "'+newVal+'"（强制随机）');
+        }
+        break;
+      }
+    }
+  });
+}
+
 // ============================================================
 //  串行填充引擎（v10: AI智能数据生成）
 // ============================================================
@@ -635,6 +693,9 @@ function _fillAll(data) {
 
             // ★ 后处理：检查并修正 AI 生成的日期（如果重复就强制分散）
             postProcessDates(aiValueMap, aiFields);
+
+            // ★ 后处理：强制合同编号等"编号类"字段按规则随机（避免每次相同）
+            postProcessSerialNumbers(aiValueMap, aiFields);
 
             globalResults.pop();
             runRound();
