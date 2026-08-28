@@ -1,0 +1,8 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - heading "📊 Excel 积分统计工具" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 导入 Excel 积分表，自动统计个人总分、小组总分、排名等，支持导出结果
+  - generic [ref=e6] [cursor=pointer]:
+    - generic [ref=e7]: 📁
+    - paragraph [ref=e8]: 点击或拖拽 Excel 文件到此处
+    - paragraph [ref=e9]: 支持 .xlsx 格式 | 数据在浏览器本地处理，不会上传
