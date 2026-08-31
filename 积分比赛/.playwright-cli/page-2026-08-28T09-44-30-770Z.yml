@@ -1,0 +1,67 @@
+- generic [ref=e3]:
+  - heading "🏆 总分竞赛 🏆" [level=1] [ref=e6]
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: 📊 数据导入 & 竞赛控制
+        - generic [ref=e12]:
+          - button "📂 导入Excel" [ref=e14] [cursor=pointer]:
+            - button "📂 导入Excel" [ref=e15]:
+              - generic [ref=e16]: 📂 导入Excel
+          - button "🖼 更换背景" [ref=e18] [cursor=pointer]:
+            - button "🖼 更换背景" [ref=e19]:
+              - generic [ref=e20]: 🖼 更换背景
+          - button "⚙️ 竞赛配置" [ref=e21] [cursor=pointer]:
+            - generic [ref=e22]: ⚙️ 竞赛配置
+          - button "📘 使用说明" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: 📘 使用说明
+      - generic [ref=e27]:
+        - button "开始竞赛" [active] [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: 开始竞赛
+        - button "查看排名" [ref=e30] [cursor=pointer]:
+          - generic [ref=e31]: 查看排名
+    - generic [ref=e33]:
+      - generic [ref=e35]: 终点线
+      - generic [ref=e36]:
+        - generic [ref=e185]: 🏆
+        - generic: 陈宇飞98分
+      - generic [ref=e37]:
+        - generic [ref=e186]: 🥈
+        - generic: 刘思雨96分
+      - generic [ref=e38]:
+        - generic [ref=e187]: 🥉
+        - generic: 王浩然95分
+      - generic [ref=e39]:
+        - generic: 赵梦琪93分
+      - generic [ref=e40]:
+        - generic: 孙晨曦92分
+      - generic [ref=e41]:
+        - generic: 周子涵91分
+      - generic [ref=e42]:
+        - generic: 吴雨桐90分
+      - generic [ref=e43]:
+        - generic: 郑佳怡88分
+      - generic [ref=e44]:
+        - generic: 钱博文87分
+      - generic [ref=e45]:
+        - generic: 冯晓萌86分
+      - generic [ref=e46]:
+        - generic: 蒋明轩85分
+      - generic [ref=e47]:
+        - generic: 沈雅欣84分
+      - generic [ref=e48]:
+        - generic: 韩宇豪83分
+      - generic [ref=e49]:
+        - generic: 杨诗涵82分
+      - generic [ref=e50]:
+        - generic: 方慧琳请假
+      - generic [ref=e51]:
+        - generic: 许晨阳78分
+      - generic [ref=e52]:
+        - generic: 林依依77分
+      - generic [ref=e53]:
+        - generic: 曹欣悦75分
+      - generic [ref=e54]:
+        - generic: 魏思远73分
+      - generic [ref=e55]:
+        - generic: 罗明远60分

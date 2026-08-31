@@ -1,0 +1,140 @@
+- generic [ref=e3]:
+  - heading "🏆 总分竞赛 🏆" [level=1] [ref=e6]
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: 📊 数据导入 & 竞赛控制
+        - generic [ref=e12]:
+          - button "📂 导入Excel" [ref=e14] [cursor=pointer]:
+            - button "📂 导入Excel" [ref=e15]:
+              - generic [ref=e16]: 📂 导入Excel
+          - button "🖼 更换背景" [ref=e18] [cursor=pointer]:
+            - button "🖼 更换背景" [ref=e19]:
+              - generic [ref=e20]: 🖼 更换背景
+          - button "⚙️ 竞赛配置" [ref=e21] [cursor=pointer]:
+            - generic [ref=e22]: ⚙️ 竞赛配置
+          - button "📘 使用说明" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: 📘 使用说明
+      - generic [ref=e27]:
+        - button "开始竞赛" [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: 开始竞赛
+        - button "查看排名" [ref=e30] [cursor=pointer]:
+          - generic [ref=e31]: 查看排名
+    - generic [ref=e33]:
+      - generic [ref=e35]: 终点线
+      - generic [ref=e36]:
+        - generic: 陈宇飞98分
+      - generic [ref=e37]:
+        - generic: 刘思雨96分
+      - generic [ref=e38]:
+        - generic: 王浩然95分
+      - generic [ref=e39]:
+        - generic: 赵梦琪93分
+      - generic [ref=e40]:
+        - generic: 孙晨曦92分
+      - generic [ref=e41]:
+        - generic: 周子涵91分
+      - generic [ref=e42]:
+        - generic: 吴雨桐90分
+      - generic [ref=e43]:
+        - generic: 郑佳怡88分
+      - generic [ref=e44]:
+        - generic: 钱博文87分
+      - generic [ref=e45]:
+        - generic: 冯晓萌86分
+      - generic [ref=e46]:
+        - generic: 蒋明轩85分
+      - generic [ref=e47]:
+        - generic: 沈雅欣84分
+      - generic [ref=e48]:
+        - generic: 韩宇豪83分
+      - generic [ref=e49]:
+        - generic: 杨诗涵82分
+      - generic [ref=e50]:
+        - generic: 方慧琳请假
+      - generic [ref=e51]:
+        - generic: 许晨阳78分
+      - generic [ref=e52]:
+        - generic: 林依依77分
+      - generic [ref=e53]:
+        - generic: 曹欣悦75分
+      - generic [ref=e54]:
+        - generic: 魏思远73分
+      - generic [ref=e55]:
+        - generic: 罗明远60分
+  - dialog "⚙️ 竞赛参数配置" [ref=e62]:
+    - generic [active] [ref=e63]:
+      - banner [ref=e64]:
+        - heading "⚙️ 竞赛参数配置" [level=2] [ref=e65]
+        - button "Close this dialog" [ref=e66] [cursor=pointer]:
+          - img [ref=e68]
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]: 页面标题
+          - textbox "页面标题" [ref=e77]: 🏆 总分竞赛 🏆
+        - generic [ref=e78]:
+          - generic [ref=e79]: 竞赛模式
+          - generic [ref=e82] [cursor=pointer]:
+            - generic:
+              - combobox "竞赛模式" [ref=e84]
+              - generic [ref=e85]: 分层显示（高分更靠近终点）
+            - img [ref=e88]
+        - generic [ref=e90]:
+          - generic [ref=e91]: 显示组别
+          - generic [ref=e94] [cursor=pointer]:
+            - checkbox "显示组别"
+        - generic [ref=e96]:
+          - generic [ref=e97]: 显示分数
+          - generic [ref=e100] [cursor=pointer]:
+            - checkbox "显示分数" [checked]
+        - generic [ref=e102]:
+          - generic [ref=e103]: 头像显示
+          - generic [ref=e106] [cursor=pointer]:
+            - generic:
+              - combobox "头像显示" [ref=e108]
+              - generic [ref=e109]: 默认头像
+            - img [ref=e112]
+        - generic [ref=e114]:
+          - generic [ref=e115]: 动画时长(秒)
+          - generic [ref=e117]:
+            - button "decrease number" [ref=e118] [cursor=pointer]:
+              - img [ref=e120]
+            - button "increase number" [ref=e122] [cursor=pointer]:
+              - img [ref=e124]
+            - spinbutton "动画时长(秒)" [ref=e128]: "12"
+        - generic [ref=e129]:
+          - generic [ref=e130]: 头像大小(像素)
+          - generic [ref=e132]:
+            - button "decrease number" [ref=e133] [cursor=pointer]:
+              - img [ref=e135]
+            - button "increase number" [ref=e137] [cursor=pointer]:
+              - img [ref=e139]
+            - spinbutton "头像大小(像素)" [ref=e143]: "40"
+        - generic [ref=e144]:
+          - generic [ref=e145]: 标签字体大小(像素)
+          - generic [ref=e147]:
+            - button "decrease number" [ref=e148] [cursor=pointer]:
+              - img [ref=e150]
+            - button "increase number" [ref=e152] [cursor=pointer]:
+              - img [ref=e154]
+            - spinbutton "标签字体大小(像素)" [ref=e158]: "12"
+        - separator [ref=e159]:
+          - generic [ref=e160]: 🔊 音效设置
+        - generic [ref=e161]:
+          - generic [ref=e162]: 音效
+          - generic [ref=e164]:
+            - switch "音效" [checked]
+            - generic [ref=e166] [cursor=pointer]: 关闭
+            - generic [ref=e170] [cursor=pointer]: 开启
+        - group "自定义音乐" [ref=e171]:
+          - generic [ref=e172]: 自定义音乐
+          - button "上传音频" [ref=e175] [cursor=pointer]:
+            - button "上传音频" [ref=e176]:
+              - generic [ref=e177]: 上传音频
+      - contentinfo [ref=e178]:
+        - button "重置配置" [ref=e179] [cursor=pointer]:
+          - generic [ref=e180]: 重置配置
+        - button "取消" [ref=e181] [cursor=pointer]:
+          - generic [ref=e182]: 取消
+        - button "保存配置" [ref=e183] [cursor=pointer]:
+          - generic [ref=e184]: 保存配置
